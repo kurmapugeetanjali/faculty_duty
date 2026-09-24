@@ -870,10 +870,29 @@ function generatePeriodCellHTML(day, period, entry, hasUploadedClasses = true) {
 
     if (entry) {
         const themeClass = getSubjectThemeClass(entry.subject_code);
+        
+        // Exact clean subject shortcuts matching uploaded timetable
+        let displaySubject = entry.subject_name;
+        if (entry.subject_code === 'CM-501' || entry.subject_code === 'CS-501') displaySubject = 'IM&ED';
+        else if (entry.subject_code === 'CM-502' || entry.subject_code === 'CS-502') displaySubject = (entry.room && entry.room.toLowerCase().includes('lab')) ? 'WT LAB' : 'WT';
+        else if (entry.subject_code === 'CM-503' || entry.subject_code === 'CS-503') displaySubject = 'BD & CC';
+        else if (entry.subject_code === 'CM-504' || entry.subject_code === 'CS-504') {
+            if (period === 2 && (day === 'Tuesday' || day === 'Thursday' || day === 'Friday' || day === 'Saturday')) displaySubject = 'IOT';
+            else if (period === 1 && day === 'Saturday') displaySubject = 'IOT';
+            else if (period === 2 && (day === 'Monday' || day === 'Wednesday')) displaySubject = 'ANDROID PROG';
+            else if (period === 3 && day === 'Saturday') displaySubject = 'ANDROID PROG';
+            else if (period === 4 && (day === 'Tuesday' || day === 'Thursday' || day === 'Saturday')) displaySubject = 'ANDROID PROG';
+            else if (period === 5 && (day === 'Thursday' || day === 'Friday')) displaySubject = 'ANDROID PROG';
+            else if (period === 6 && day === 'Friday') displaySubject = 'ANDROID PROG';
+            else displaySubject = 'PYTHON PROG';
+        }
+        else if (entry.subject_code === 'CM-505' || entry.subject_code === 'CS-505') displaySubject = 'PYTHON PROG LAB';
+        else if (entry.subject_code === 'CM-506' || entry.subject_code === 'CS-506') displaySubject = 'PROJECT WORK';
+
         return `
             <td class="timetable-cell">
                 <div onclick="selectPeriodSlot('${day}', ${period}, ${entry.id})" 
-                     class="period-slot ${themeClass} p-2.5 sm:p-3 rounded-xl ${isSelected ? 'selected' : ''}">
+                     class="period-slot ${themeClass} p-2.5 sm:p-3 rounded-xl ${isSelected ? 'selected' : ''} cursor-pointer transition">
                     <div class="flex items-center justify-between gap-1 mb-1">
                         <span class="badge-pill px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide shadow-xs">
                             ${entry.subject_code}
@@ -881,10 +900,10 @@ function generatePeriodCellHTML(day, period, entry, hasUploadedClasses = true) {
                         <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/5 text-slate-700">${entry.room || 'LH-101'}</span>
                     </div>
                     <div class="text-xs font-black truncate tracking-tight text-slate-900" title="${entry.subject_name}">
-                        ${entry.subject_name}
+                        ${displaySubject}
                     </div>
-                    <div class="text-[11px] font-bold flex items-center gap-1 mt-1 text-slate-600 truncate">
-                        <i data-lucide="user" class="w-3 h-3 text-slate-400 flex-shrink-0"></i>
+                    <div class="text-[11px] font-bold flex items-center gap-1 mt-1 text-slate-700 truncate">
+                        <i data-lucide="user" class="w-3 h-3 text-indigo-600 flex-shrink-0"></i>
                         <span>${entry.faculty_name}</span>
                     </div>
 
@@ -946,7 +965,7 @@ async function selectPeriodSlot(day, period, entryId) {
     }
     if (subtitle) {
         subtitle.innerText = entry 
-            ? `Scheduled Teacher: ${entry.faculty_name} (${entry.room}) • CSE Department`
+            ? `Scheduled Class: ${entry.subject_code} • Teacher: ${entry.faculty_name} (${entry.room}) • CSE Department`
             : `Open Period slot in CSE Master Timetable.`;
     }
 
@@ -983,15 +1002,14 @@ function renderFacultyCards(facultyList, day, period, entry) {
         );
         const whatsappUrl = `https://wa.me/${cleanPhone}?text=${whatsappMsg}`;
         const isExamBusy = fac.availability_status === 'invigilation_busy';
-        const escapedName = (fac.full_name || 'Faculty').replace(/'/g, "\\'");
 
         return `
             <div class="faculty-candidate-card ${isExamBusy ? 'exam-duty-card' : ''} p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
                 <div>
-                    <!-- Header with Avatar and Teacher Name -->
+                    <!-- Header with Avatar and Teacher Name (Displayed Strictly Once) -->
                     <div class="flex items-start gap-3">
                         <div class="w-11 h-11 rounded-2xl ${isExamBusy ? 'bg-gradient-to-tr from-amber-500 to-orange-600' : 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500'} text-white flex items-center justify-center font-black text-sm shadow-md flex-shrink-0">
-                            ${fac.full_name.replace('Dr. ', '').replace('Prof. ', '').substring(0, 2).toUpperCase()}
+                            ${fac.full_name.replace('Dr. ', '').replace('Prof. ', '').replace('Sri ', '').substring(0, 2).toUpperCase()}
                         </div>
                         
                         <div class="flex-1 min-w-0">
@@ -1019,7 +1037,7 @@ function renderFacultyCards(facultyList, day, period, entry) {
                                 <span>${fac.phone}</span>
                             </a>
                             <button onclick="navigator.clipboard.writeText('${fac.phone}'); showToast('Copied ${fac.phone} to clipboard!')" 
-                                    class="text-[10px] bg-white border border-indigo-200 text-indigo-800 hover:bg-indigo-50 px-2 py-0.5 rounded-lg font-bold shadow-xs flex items-center gap-1" title="Copy Number">
+                                    class="text-[10px] bg-white border border-indigo-200 text-indigo-800 hover:bg-indigo-50 px-2 py-0.5 rounded-lg font-bold shadow-xs flex items-center gap-1 cursor-pointer" title="Copy Number">
                                 <i data-lucide="copy" class="w-2.5 h-2.5"></i> Copy
                             </button>
                         </div>
@@ -1030,16 +1048,13 @@ function renderFacultyCards(facultyList, day, period, entry) {
                         <div class="p-2.5 rounded-xl bg-amber-100 border-2 border-amber-400 text-xs text-amber-950 font-semibold space-y-1 mt-2">
                             <div class="flex items-center gap-1.5 font-black text-amber-900">
                                 <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
-                                <span>⚠️ In Exam Invigilation:</span>
+                                <span>⚠️ Assigned to Exam Duty:</span>
                             </div>
-                            <div class="text-xs text-amber-950 font-black pl-5">
-                                ${fac.invigilation_info ? fac.invigilation_info.exam_name : 'Semester Examination'}
-                            </div>
-                            <div class="text-[11px] text-amber-900 pl-5 font-bold">
-                                Hall: <strong>${fac.invigilation_info ? fac.invigilation_info.hall_no : 'Exam Hall'}</strong> • Session: <strong>${fac.invigilation_info ? fac.invigilation_info.session : 'Morning'}</strong>
+                            <div class="text-xs text-amber-950 font-bold pl-5">
+                                Room: <strong>${fac.invigilation_info ? fac.invigilation_info.hall_no : 'Exam Hall'}</strong>
                             </div>
                             <div class="text-[10px] text-amber-800 italic pl-5">
-                                (Assigned to exam duty. You can still select or contact this faculty member if they agree to substitute)
+                                (Assigned to exam duty. You can still contact this faculty member if they agree to substitute)
                             </div>
                         </div>
                     ` : `
@@ -2022,6 +2037,23 @@ function renderInlineMasterSchedule() {
 
             const themeClass = getSubjectThemeClass(slot.subject_code);
 
+            let displaySubject = slot.subject_name || (isFree ? 'No Class' : 'Assigned');
+            if (slot.subject_code === 'CM-501' || slot.subject_code === 'CS-501') displaySubject = 'IM&ED';
+            else if (slot.subject_code === 'CM-502' || slot.subject_code === 'CS-502') displaySubject = (slot.room && slot.room.toLowerCase().includes('lab')) ? 'WT LAB' : 'WT';
+            else if (slot.subject_code === 'CM-503' || slot.subject_code === 'CS-503') displaySubject = 'BD & CC';
+            else if (slot.subject_code === 'CM-504' || slot.subject_code === 'CS-504') {
+                if (p === 2 && (day === 'Tuesday' || day === 'Thursday' || day === 'Friday' || day === 'Saturday')) displaySubject = 'IOT';
+                else if (p === 1 && day === 'Saturday') displaySubject = 'IOT';
+                else if (p === 2 && (day === 'Monday' || day === 'Wednesday')) displaySubject = 'ANDROID PROG';
+                else if (p === 3 && day === 'Saturday') displaySubject = 'ANDROID PROG';
+                else if (p === 4 && (day === 'Tuesday' || day === 'Thursday' || day === 'Saturday')) displaySubject = 'ANDROID PROG';
+                else if (p === 5 && (day === 'Thursday' || day === 'Friday')) displaySubject = 'ANDROID PROG';
+                else if (p === 6 && day === 'Friday') displaySubject = 'ANDROID PROG';
+                else displaySubject = 'PYTHON PROG';
+            }
+            else if (slot.subject_code === 'CM-505' || slot.subject_code === 'CS-505') displaySubject = 'PYTHON PROG LAB';
+            else if (slot.subject_code === 'CM-506' || slot.subject_code === 'CS-506') displaySubject = 'PROJECT WORK';
+
             html += `
                 <td class="p-2 text-center">
                     <div onclick="openInlineMasterSlotEditor('${day}', ${p})" 
@@ -2035,7 +2067,7 @@ function renderInlineMasterSchedule() {
                             </span>
                         </div>
                         <div class="text-[11px] font-black truncate text-left ${isFree ? 'text-slate-400' : 'text-slate-900'}" title="${slot.subject_name || ''}">
-                            ${slot.subject_name || (isFree ? 'No Class' : 'Assigned')}
+                            ${displaySubject}
                         </div>
                         <div class="text-[10px] font-semibold truncate text-left mt-0.5 ${isFree ? 'text-slate-400' : 'text-slate-600'}">
                             👤 ${slot.faculty_name || (isFree ? '---' : 'Teacher')}
