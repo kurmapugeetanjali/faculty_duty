@@ -3,13 +3,13 @@ const pool = require('../database/database');
 
 /**
  * Intelligent Timetable OCR and Layout Extractor
- * Reads timetable image, extracts text/tokens, and maps them to Days (Mon-Sat) and Periods (1-7).
+ * Reads timetable image/document, extracts text/tokens, and maps them to Days (Mon-Sat) and Periods (1-7).
  */
 async function parseTimetableImage(imagePath, department = 'CSE', branchId = null) {
     try {
-        console.log(`[OCR Engine] Running Tesseract OCR on image: ${imagePath}`);
+        console.log(`[OCR Engine] Running Intelligent Tesseract OCR on image: ${imagePath}`);
         
-        // Run OCR recognition
+        // Run OCR recognition with high-accuracy settings
         const ocrResult = await Tesseract.recognize(
             imagePath,
             'eng',
@@ -27,16 +27,48 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
 
         // Fetch known subjects and faculty for the department from database
         const subjectsRes = await pool.query(
-            'SELECT id, subject_code, subject_name FROM subjects WHERE department = $1 OR $1 = \'ALL\' ORDER BY id ASC',
+            'SELECT id, subject_code, subject_name, department FROM subjects WHERE department = $1 OR $1 = \'ALL\' ORDER BY id ASC',
             [department]
         );
         const facultyRes = await pool.query(
-            'SELECT id, faculty_id, full_name, designation FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC',
+            'SELECT id, faculty_id, full_name, designation, department FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC',
             [department]
         );
 
         const knownSubjects = subjectsRes.rows;
         const knownFaculty = facultyRes.rows;
+
+        // Build alias map for subjects (including common abbreviations)
+        const subjectAliasMap = [];
+        knownSubjects.forEach(sub => {
+            const aliases = [
+                sub.subject_code.toUpperCase(),
+                sub.subject_code.replace(/[^A-Za-z0-9]/g, '').toUpperCase(),
+                sub.subject_name.toUpperCase()
+            ];
+
+            // Add number codes like "501", "502"
+            const numMatch = sub.subject_code.match(/\d+/);
+            if (numMatch) aliases.push(numMatch[0]);
+
+            // Add acronym from subject name
+            const acronym = sub.subject_name.split(/[\s\-()]+/).filter(w => w.length > 0).map(w => w[0]).join('').toUpperCase();
+            if (acronym.length >= 2) aliases.push(acronym);
+
+            // Add extracted parenthetical acronyms e.g., "(IME)", "(AJWT)", "(CCV)", "(PPDS)"
+            const parenMatch = sub.subject_name.match(/\(([^)]+)\)/);
+            if (parenMatch) aliases.push(parenMatch[1].toUpperCase());
+
+            // Add specific common acronyms
+            if (sub.subject_code === 'CS-501') aliases.push('IME', 'MGMT', 'IND MGMT');
+            if (sub.subject_code === 'CS-502') aliases.push('AJWT', 'JAVA', 'ADV JAVA', 'WEB TECH', 'WT');
+            if (sub.subject_code === 'CS-503') aliases.push('CCV', 'CLOUD', 'VIRTUALIZATION');
+            if (sub.subject_code === 'CS-504') aliases.push('PPDS', 'PYTHON', 'DATA SCIENCE', 'DS');
+            if (sub.subject_code === 'CS-505') aliases.push('CHN', 'HARDWARE', 'NETWORK LAB', 'HW LAB');
+            if (sub.subject_code === 'CS-506') aliases.push('MPW', 'PROJECT', 'MAJOR PROJECT', 'CAPSTONE');
+
+            subjectAliasMap.push({ subject: sub, aliases: Array.from(new Set(aliases)) });
+        });
 
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayAliases = {
@@ -58,10 +90,10 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
                     period: p,
                     subject_id: null,
                     subject_code: '',
-                    subject_name: 'Free / Unassigned',
+                    subject_name: 'Free Slot',
                     faculty_id: null,
                     faculty_name: '',
-                    room: 'LH-101',
+                    room: `LH-${101 + (p % 3)}`,
                     isFree: true
                 };
             }
@@ -69,26 +101,27 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
 
         // Split text by lines
         const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        const detectedTokens = [];
 
         // Helper to match text to known subjects
-        function findSubject(token) {
+        function matchSubjectInText(token) {
             if (!token || token.length < 2) return null;
-            const clean = token.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            for (const sub of knownSubjects) {
-                const subCodeClean = sub.subject_code.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const subNameClean = sub.subject_name.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                if (clean.includes(subCodeClean) || subCodeClean.includes(clean)) return sub;
-                // Check abbreviation or acronym (e.g., IME, AJWT, CCV, PPDS, CHN, MPW)
-                const acronym = sub.subject_name.split(/\s+/).map(w => w[0]).join('').toUpperCase();
-                if (acronym.length >= 2 && clean.includes(acronym)) return sub;
+            const cleanToken = token.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            for (const item of subjectAliasMap) {
+                for (const alias of item.aliases) {
+                    const cleanAlias = alias.replace(/[^A-Z0-9]/g, '');
+                    if (cleanToken === cleanAlias || (cleanAlias.length >= 3 && cleanToken.includes(cleanAlias))) {
+                        return item.subject;
+                    }
+                }
             }
             return null;
         }
 
-        // Helper to match text to known faculty
-        function findFaculty(token) {
-            if (!token || token.length < 3) return null;
-            const clean = token.toLowerCase();
+        // Helper to match faculty
+        function matchFacultyInText(text) {
+            if (!text || text.length < 3) return null;
+            const clean = text.toLowerCase();
             for (const fac of knownFaculty) {
                 const nameParts = fac.full_name.toLowerCase().replace(/^(dr\.|prof\.|mr\.|mrs\.)\s*/i, '').split(/\s+/);
                 for (const part of nameParts) {
@@ -98,7 +131,6 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
             return null;
         }
 
-        // Parse line by line
         let currentDay = 'Monday';
         let assignedCount = 0;
 
@@ -115,15 +147,16 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
             }
 
             // Extract tokens and search for subjects / periods
-            const words = line.split(/[\s,|/;\t]+/);
+            const words = line.split(/[\s,|/;\t\-\[\]()]+/);
             let periodIndex = 1;
 
-            for (const word of words) {
+            for (let i = 0; i < words.length; i++) {
                 if (periodIndex > 7) break;
+                const word = words[i];
+                const matchedSub = matchSubjectInText(word);
 
-                const matchedSub = findSubject(word);
                 if (matchedSub) {
-                    const matchedFac = findFaculty(line) || knownFaculty[(assignedCount) % Math.max(1, knownFaculty.length)];
+                    const matchedFac = matchFacultyInText(line) || knownFaculty[(assignedCount) % Math.max(1, knownFaculty.length)];
                     grid[currentDay][periodIndex] = {
                         day: currentDay,
                         period: periodIndex,
@@ -135,37 +168,30 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
                         room: `LH-${101 + (periodIndex % 3)}`,
                         isFree: false
                     };
+
+                    const tokenLabel = `${matchedSub.subject_code} (${currentDay} P${periodIndex})`;
+                    if (!detectedTokens.includes(tokenLabel)) {
+                        detectedTokens.push(tokenLabel);
+                    }
+
                     assignedCount++;
                     periodIndex++;
                 }
             }
         }
 
-        // If OCR found sparse tokens or if image is a standard table photo, fill structured periods using detected subjects
-        if (assignedCount < 6 && knownSubjects.length > 0 && knownFaculty.length > 0) {
-            console.log(`[OCR Engine] Sparse layout detected (${assignedCount} slots). Populating structured periods with detected subject dictionary...`);
-            let subIdx = 0;
-            for (let d = 0; d < days.length; d++) {
-                const dName = days[d];
-                for (let p = 1; p <= 6; p++) {
-                    const sub = knownSubjects[subIdx % knownSubjects.length];
-                    const fac = knownFaculty[(d + p - 1) % knownFaculty.length];
-                    grid[dName][p] = {
-                        day: dName,
-                        period: p,
-                        subject_id: sub.id,
-                        subject_code: sub.subject_code,
-                        subject_name: sub.subject_name,
-                        faculty_id: fac.id,
-                        faculty_name: fac.full_name,
-                        room: `LH-${101 + (d % 3)}`,
-                        isFree: false
-                    };
-                    subIdx++;
-                    assignedCount++;
+        // If OCR found specific subjects anywhere in text, list them in detected tokens
+        subjectAliasMap.forEach(item => {
+            for (const alias of item.aliases) {
+                if (alias.length >= 3 && rawText.toUpperCase().includes(alias)) {
+                    const tokenLabel = `${item.subject.subject_code} - ${item.subject.subject_name}`;
+                    if (!detectedTokens.includes(tokenLabel)) {
+                        detectedTokens.push(tokenLabel);
+                    }
+                    break;
                 }
             }
-        }
+        });
 
         // Convert grid to flat array of entries
         const structuredEntries = [];
@@ -183,14 +209,19 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
             extractedText: rawText,
             lineCount: lines.length,
             assignedCount: structuredEntries.length,
+            detectedTokens: detectedTokens,
             grid: grid,
-            entries: structuredEntries
+            entries: structuredEntries,
+            knownSubjects: knownSubjects,
+            knownFaculty: knownFaculty
         };
     } catch (err) {
         console.error("[OCR Engine Error]:", err);
         return {
             success: false,
             error: err.message,
+            extractedText: '',
+            detectedTokens: [],
             grid: null,
             entries: []
         };

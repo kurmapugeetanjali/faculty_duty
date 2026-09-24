@@ -266,7 +266,228 @@ router.get('/personal-schedule', requireAuth, async (req, res) => {
 
 const { parseTimetableImage } = require('../services/timetableOcr');
 
-// 5. ADMIN ONLY: UPLOAD / OCR-PARSE MASTER TIMETABLE FOR A SEMESTER (PHOTO / PDF / CSV / JSON)
+// 5. PARSE MASTER TIMETABLE IMAGE WITH OCR (Returns Preview & Grid for Studio Verification)
+router.post('/parse-master-image', requireHOS, upload.single('masterFile'), async (req, res) => {
+    const { branch_id } = req.body;
+    const branchId = parseInt(branch_id, 10);
+    if (!branchId) {
+        return res.status(400).json({ error: 'Valid branch_id is required' });
+    }
+
+    try {
+        const branchRes = await pool.query('SELECT * FROM branches WHERE id = $1', [branchId]);
+        const branch = branchRes.rows[0];
+        if (!branch) return res.status(404).json({ error: 'Branch not found' });
+
+        const dept = branch.department;
+
+        // Fetch known subjects and faculty for this department
+        const subRes = await pool.query('SELECT id, subject_code, subject_name, department FROM subjects WHERE department = $1 OR $1 = \'ALL\' ORDER BY id ASC', [dept]);
+        const facRes = await pool.query('SELECT id, faculty_id, full_name, designation, department FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
+
+        let ocrData = {
+            success: true,
+            extractedText: '',
+            detectedTokens: [],
+            grid: {},
+            assignedCount: 0
+        };
+
+        let fileUrl = null;
+
+        if (req.file) {
+            console.log(`[Master Upload] Running OCR on: ${req.file.originalname}`);
+            fileUrl = `/uploads/${req.file.filename}`;
+            const ocrResult = await parseTimetableImage(req.file.path, dept, branchId);
+            if (ocrResult.success) {
+                ocrData = ocrResult;
+            }
+        }
+
+        res.json({
+            success: true,
+            fileUrl: fileUrl,
+            fileName: req.file ? req.file.originalname : 'Document',
+            branch: branch,
+            extractedText: ocrData.extractedText || '',
+            detectedTokens: ocrData.detectedTokens || [],
+            grid: ocrData.grid || null,
+            assignedCount: ocrData.assignedCount || 0,
+            knownSubjects: subRes.rows,
+            knownFaculty: facRes.rows
+        });
+    } catch (err) {
+        console.error("Error in /upload/parse-master-image:", err);
+        res.status(500).json({ error: 'Failed to parse timetable image: ' + err.message });
+    }
+});
+
+// 6. GENERATE STANDARD PRESET GRID FOR BRANCH
+router.get('/preset-grid/:branchId', requireHOS, async (req, res) => {
+    const branchId = parseInt(req.params.branchId, 10);
+    if (!branchId) return res.status(400).json({ error: 'Valid branchId required' });
+
+    try {
+        const branchRes = await pool.query('SELECT * FROM branches WHERE id = $1', [branchId]);
+        const branch = branchRes.rows[0];
+        if (!branch) return res.status(404).json({ error: 'Branch not found' });
+
+        const dept = branch.department;
+        const subRes = await pool.query('SELECT id, subject_code, subject_name, department FROM subjects WHERE department = $1 OR $1 = \'ALL\' ORDER BY id ASC', [dept]);
+        const facRes = await pool.query('SELECT id, faculty_id, full_name, designation, department FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
+
+        const subjects = subRes.rows;
+        const faculty = facRes.rows;
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        const grid = {};
+        let subIdx = 0;
+
+        days.forEach((day, dIdx) => {
+            grid[day] = {};
+            for (let p = 1; p <= 7; p++) {
+                if (p === 7 && dIdx % 2 === 1) {
+                    // Alternate Saturday/period 7 as sports / library / free
+                    grid[day][p] = {
+                        day,
+                        period: p,
+                        subject_id: null,
+                        subject_code: '',
+                        subject_name: 'Library / Sports / Free Slot',
+                        faculty_id: null,
+                        faculty_name: '',
+                        room: 'Campus Grounds',
+                        isFree: true
+                    };
+                } else if (subjects.length > 0 && faculty.length > 0) {
+                    const sub = subjects[subIdx % subjects.length];
+                    const fac = faculty[(dIdx + p - 1) % faculty.length];
+                    grid[day][p] = {
+                        day,
+                        period: p,
+                        subject_id: sub.id,
+                        subject_code: sub.subject_code,
+                        subject_name: sub.subject_name,
+                        faculty_id: fac.id,
+                        faculty_name: fac.full_name,
+                        room: `LH-${101 + (dIdx % 3)}`,
+                        isFree: false
+                    };
+                    subIdx++;
+                } else {
+                    grid[day][p] = {
+                        day,
+                        period: p,
+                        subject_id: null,
+                        subject_code: '',
+                        subject_name: 'Free Slot',
+                        faculty_id: null,
+                        faculty_name: '',
+                        room: 'LH-101',
+                        isFree: true
+                    };
+                }
+            }
+        });
+
+        res.json({
+            success: true,
+            branch: branch,
+            grid: grid,
+            knownSubjects: subjects,
+            knownFaculty: faculty
+        });
+    } catch (err) {
+        console.error("Error generating preset grid:", err);
+        res.status(500).json({ error: 'Failed to generate preset grid: ' + err.message });
+    }
+});
+
+// 7. CONFIRM & SAVE MASTER TIMETABLE GRID (Atomically publishes to Database)
+router.post('/save-master-grid', requireHOS, async (req, res) => {
+    const { branch_id, grid } = req.body;
+    const branchId = parseInt(branch_id, 10);
+    if (!branchId) {
+        return res.status(400).json({ error: 'Valid branch_id is required' });
+    }
+
+    if (!grid || !Array.isArray(grid)) {
+        return res.status(400).json({ error: 'Valid grid array is required' });
+    }
+
+    try {
+        const branchRes = await pool.query('SELECT * FROM branches WHERE id = $1', [branchId]);
+        const branch = branchRes.rows[0];
+        if (!branch) return res.status(404).json({ error: 'Branch not found' });
+
+        const periodTimeMap = {
+            1: { start: '08:00', end: '08:45' },
+            2: { start: '08:45', end: '09:30' },
+            3: { start: '09:30', end: '10:15' },
+            4: { start: '10:30', end: '11:15' },
+            5: { start: '11:15', end: '12:00' },
+            6: { start: '12:00', end: '12:45' },
+            7: { start: '12:45', end: '01:30' }
+        };
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            // Cleanly delete previous timetable entries for this branch
+            await client.query('DELETE FROM timetable WHERE branch_id = $1', [branchId]);
+
+            let count = 0;
+            for (const item of grid) {
+                const subId = parseInt(item.subject_id, 10);
+                const facId = parseInt(item.faculty_id, 10);
+                const periodNum = parseInt(item.period, 10);
+                const dayName = item.day;
+
+                // Only insert assigned, valid slots (skip empty/free slots)
+                if (dayName && periodNum >= 1 && periodNum <= 7 && subId && facId && !item.isFree) {
+                    const times = periodTimeMap[periodNum] || { start: '08:00', end: '08:45' };
+                    const startTime = item.start_time || times.start;
+                    const endTime = item.end_time || times.end;
+                    const room = item.room || `LH-${101 + (periodNum % 3)}`;
+
+                    await client.query(`
+                        INSERT INTO timetable (branch_id, day, period, start_time, end_time, subject_id, faculty_id, room)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    `, [
+                        branchId,
+                        dayName,
+                        periodNum,
+                        startTime,
+                        endTime,
+                        subId,
+                        facId,
+                        room
+                    ]);
+                    count++;
+                }
+            }
+
+            await client.query('COMMIT');
+
+            res.json({
+                success: true,
+                message: `🎉 Master Timetable for ${branch.branch_name} accurately synchronized with ${count} periods!`,
+                count: count,
+                branch: branch
+            });
+        } catch (txErr) {
+            await client.query('ROLLBACK');
+            throw txErr;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error("Error in /upload/save-master-grid:", err);
+        res.status(500).json({ error: 'Failed to save master timetable: ' + err.message });
+    }
+});
+
+// 8. LEGACY DIRECT UPLOAD / OCR-PARSE MASTER TIMETABLE (Photo / PDF / CSV / JSON)
 router.post('/master-file', requireHOS, upload.single('masterFile'), async (req, res) => {
     const { branch_id } = req.body;
     const branchId = parseInt(branch_id, 10);
@@ -292,7 +513,7 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
             }
         }
 
-        // Fallback: If no file uploaded (1-click auto-populate), populate standard structured schedule for this branch
+        // If no file uploaded or 0 OCR entries found, populate default curriculum schedule
         if (parsedEntries.length === 0) {
             const subRes = await pool.query('SELECT * FROM subjects WHERE department = $1 ORDER BY id ASC', [dept]);
             const facRes = await pool.query('SELECT * FROM users WHERE department = $1 AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
@@ -370,3 +591,4 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
 });
 
 module.exports = router;
+
