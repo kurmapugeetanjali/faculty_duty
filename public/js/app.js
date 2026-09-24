@@ -1314,17 +1314,7 @@ async function submitPersonalFile() {
                 await loadPersonalSchedule();
             }
 
-            if (data.branch_id) {
-                currentBranchId = data.branch_id;
-            }
-
-            renderBranchUI();
-            
-            // Automatically switch to Home Page tab and render structured timetable live
-            switchTab('timetableTab', document.getElementById('navHomeTab'));
-            await loadTimetable(currentBranchId);
-
-            showToast(data.message || '🎉 Timetable organized & published! All subjects and faculty members are now live in the structured Home Page timetable.');
+            showToast(data.message || '🎉 Personal timetable structured! Review your schedule below and click "Save & Sync My Timetable".');
             selectedPersonalFile = null;
             if (fileInput) fileInput.value = '';
             const info = document.getElementById('selectedFileInfo');

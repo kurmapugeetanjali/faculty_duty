@@ -32,112 +32,60 @@ const upload = multer({
     }
 });
 
-// 1. UPLOAD PERSONAL / SEMESTER TIMETABLE PHOTO OR PDF (Organizes into 7 Periods & Publishes to Home Page)
+// 1. UPLOAD PERSONAL TIMETABLE PHOTO OR PDF (Organizes Teacher's 7 Periods without affecting Master Timetable)
 router.post('/personal-file', requireAuth, upload.single('personalFile'), async (req, res) => {
     const facultyId = req.session.userId || (req.body && req.body.user_id) || 1;
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
     try {
-        // Fetch user department
-        const userRes = await pool.query('SELECT department, full_name, role FROM users WHERE id = $1', [facultyId]);
+        // Fetch user info
+        const userRes = await pool.query('SELECT id, faculty_id, full_name, role, department FROM users WHERE id = $1', [facultyId]);
         const user = userRes.rows[0] || { department: 'CSE', full_name: 'Faculty' };
         const dept = user.department || 'CSE';
 
-        // Find target branch (defaulting to 5th Sem of department)
-        const branchRes = await pool.query('SELECT * FROM branches WHERE department = $1 ORDER BY id ASC', [dept]);
-        const targetBranch = branchRes.rows.find(b => b.branch_name.includes('5th')) || branchRes.rows[0] || { id: 4, branch_name: 'CSE 5th Sem' };
-        const branchId = targetBranch.id;
+        // Fetch master timetable duties already assigned to this faculty
+        const masterDutiesRes = await pool.query(`
+            SELECT t.day, t.period, s.subject_code, s.subject_name, b.branch_name, t.room
+            FROM timetable t
+            JOIN subjects s ON t.subject_id = s.id
+            JOIN branches b ON t.branch_id = b.id
+            WHERE t.faculty_id = $1
+        `, [facultyId]);
 
-        // If file uploaded, run OCR to extract subjects and faculty
-        let ocrEntries = [];
+        const assignedMap = {};
+        masterDutiesRes.rows.forEach(cls => {
+            assignedMap[`${cls.day}_${cls.period}`] = `${cls.subject_code} (${cls.branch_name})`;
+        });
+
+        let ocrGrid = null;
         if (req.file) {
-            console.log(`[Personal Upload] Reading timetable image (${req.file.originalname}) for ${dept} (Branch ${branchId})`);
-            const ocrResult = await parseTimetableImage(req.file.path, dept, branchId);
-            if (ocrResult.success && ocrResult.entries && ocrResult.entries.length > 0) {
-                ocrEntries = ocrResult.entries;
+            console.log(`[Personal Upload] Reading teacher personal timetable (${req.file.originalname}) for ${user.full_name}`);
+            const ocrResult = await parseTimetableImage(req.file.path, dept);
+            if (ocrResult.success && ocrResult.grid) {
+                ocrGrid = ocrResult.grid;
             }
         }
 
-        // If no OCR entries, generate semester-specific curriculum schedule with faculty names
-        if (ocrEntries.length === 0) {
-            const subRes = await pool.query('SELECT id, subject_code, subject_name FROM subjects WHERE department = $1 ORDER BY id ASC', [dept]);
-            const facRes = await pool.query('SELECT id, faculty_id, full_name FROM users WHERE (role = \'faculty\' OR role = \'hos\') AND department = $1 ORDER BY id ASC', [dept]);
-            const semSubjects = getSemesterSubjectsForBranch(subRes.rows, targetBranch);
-            const facultyList = facRes.rows;
-
-            if (semSubjects.length > 0 && facultyList.length > 0) {
-                let sIdx = 0;
-                days.forEach((day, dIdx) => {
-                    for (let p = 1; p <= 7; p++) {
-                        if (p === 7 && dIdx % 2 === 1) continue;
-                        const sub = semSubjects[sIdx % semSubjects.length];
-                        const fac = facultyList[(dIdx + p - 1) % facultyList.length];
-                        ocrEntries.push({
-                            day,
-                            period: p,
-                            start_time: '08:00',
-                            end_time: '08:45',
-                            subject_id: sub.id,
-                            subject_code: sub.subject_code,
-                            subject_name: sub.subject_name,
-                            faculty_id: fac.id,
-                            faculty_name: fac.full_name,
-                            room: `LH-${101 + (dIdx % 3)}`
-                        });
-                        sIdx++;
-                    }
-                });
-            }
-        }
-
-        // Save into official master timetable table so it appears in the structured Home Page!
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-
-            if (ocrEntries.length > 0) {
-                await client.query('DELETE FROM timetable WHERE branch_id = $1', [branchId]);
-                for (const item of ocrEntries) {
-                    if (item.day && item.period && item.subject_id && item.faculty_id) {
-                        await client.query(`
-                            INSERT INTO timetable (branch_id, day, period, start_time, end_time, subject_id, faculty_id, room)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                        `, [
-                            branchId,
-                            item.day,
-                            item.period,
-                            item.start_time || '08:00',
-                            item.end_time || '08:45',
-                            item.subject_id,
-                            item.faculty_id,
-                            item.room || 'LH-101'
-                        ]);
-                    }
-                }
-            }
-
-            // Sync personal schedule for the user
-            const masterDutiesRes = await client.query(`
-                SELECT t.day, t.period, s.subject_code, s.subject_name, b.branch_name, t.room
-                FROM timetable t
-                JOIN subjects s ON t.subject_id = s.id
-                JOIN branches b ON t.branch_id = b.id
-                WHERE t.faculty_id = $1
-            `, [facultyId]);
-
-            const assignedMap = {};
-            masterDutiesRes.rows.forEach(cls => {
-                assignedMap[`${cls.day}_${cls.period}`] = `${cls.subject_code} (${cls.branch_name})`;
-            });
 
             const structuredGrid = [];
             for (const day of days) {
                 const periods = {};
                 for (let p = 1; p <= 7; p++) {
                     const key = `${day}_${p}`;
-                    const isAssigned = !!assignedMap[key];
+                    let isAssigned = !!assignedMap[key];
+                    let label = isAssigned ? assignedMap[key] : 'Free Slot';
+
+                    // If OCR detected a class for this slot in the uploaded personal file
+                    if (ocrGrid && ocrGrid[day] && ocrGrid[day][p] && !ocrGrid[day][p].isFree) {
+                        const slot = ocrGrid[day][p];
+                        isAssigned = true;
+                        label = `${slot.subject_code || 'Class'} (${slot.subject_name || 'Teaching'})`;
+                    }
+
                     const status = isAssigned ? 'busy' : 'free';
-                    const label = isAssigned ? assignedMap[key] : 'Free Slot';
 
                     await client.query(`
                         INSERT INTO faculty_personal_schedule (faculty_id, day, period, status, notes, updated_at)
@@ -159,11 +107,9 @@ router.post('/personal-file', requireAuth, upload.single('personalFile'), async 
 
             res.json({
                 success: true,
-                branch_id: branchId,
-                branch_name: targetBranch.branch_name,
                 message: req.file 
-                    ? `🎉 Timetable (${req.file.originalname}) organized successfully! All subjects and faculty members are published to the Home Page timetable.`
-                    : 'Personal timetable and master schedule organized & synchronized successfully!',
+                    ? `📷 Personal timetable (${req.file.originalname}) read & structured! Review your 7 periods below and click 'Save & Sync My Timetable'.`
+                    : 'Personal schedule generated successfully! Click Save & Sync to finalize.',
                 fileUrl: req.file ? `/uploads/${req.file.filename}` : null,
                 grid: structuredGrid
             });
@@ -175,7 +121,7 @@ router.post('/personal-file', requireAuth, upload.single('personalFile'), async 
         }
     } catch (err) {
         console.error("Error in /upload/personal-file:", err);
-        res.status(500).json({ error: 'Failed to organize timetable file', details: err.message });
+        res.status(500).json({ error: 'Failed to organize personal timetable file', details: err.message });
     }
 });
 
