@@ -1349,6 +1349,7 @@ function switchUploadMode(mode) {
         if (masterSec) masterSec.classList.remove('hidden');
         if (btnMaster) btnMaster.className = "px-3 py-1.5 rounded-lg text-xs font-black bg-amber-500 text-white shadow-sm";
         if (btnPersonal) btnPersonal.className = "px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 hover:text-slate-900";
+        initInlineMasterEditor();
     }
 }
 
@@ -1604,7 +1605,15 @@ async function savePersonalSchedule() {
     }
 }
 
-// ================= TIMETABLE VERIFICATION & SYNC STUDIO CONTROLLER =================
+// ================= MASTER TIMETABLE INLINE CONTROLLER & STUDIO ENGINE =================
+let inlineMasterBranchId = 4;
+let inlineMasterGridData = {};
+let inlineMasterFile = null;
+let inlineMasterFileUrl = null;
+let inlineMasterSubjects = [];
+let inlineMasterFaculty = [];
+let activeEditingCell = null; // { day, period, isInline }
+
 let studioBranchId = 4;
 let studioGridData = {};
 let studioImageUrl = null;
@@ -1613,15 +1622,404 @@ let studioExtractedText = '';
 let studioDetectedTokens = [];
 let studioSubjectsList = [];
 let studioFacultyList = [];
-let activeEditingCell = null; // { day, period }
 
-function onAdminTargetSemesterChanged() {
+async function onAdminSemesterDropdownChanged() {
     const sel = document.getElementById('adminUploadTargetSemester');
     if (sel && sel.value) {
-        studioBranchId = parseInt(sel.value, 10);
+        inlineMasterBranchId = parseInt(sel.value, 10);
+        studioBranchId = inlineMasterBranchId;
+    } else {
+        inlineMasterBranchId = currentBranchId || 4;
+        studioBranchId = inlineMasterBranchId;
+    }
+    await initInlineMasterEditor(inlineMasterBranchId);
+}
+
+function onAdminTargetSemesterChanged() {
+    onAdminSemesterDropdownChanged();
+}
+
+async function initInlineMasterEditor(branchId = null) {
+    if (!branchId) branchId = inlineMasterBranchId || currentBranchId || 4;
+    inlineMasterBranchId = branchId;
+    studioBranchId = branchId;
+
+    const targetBranch = allBranches.find(b => b.id === branchId);
+    const dept = targetBranch ? targetBranch.department : currentDepartment;
+
+    const badge = document.getElementById('inlineMasterTargetBadge');
+    if (badge) {
+        badge.innerText = targetBranch ? `${targetBranch.department} - ${targetBranch.branch_name}` : 'Selected Semester';
+    }
+
+    try {
+        // Fetch existing timetable for this branch
+        const res = await fetch(`/api/timetable/${branchId}`);
+        const existing = res.ok ? await res.json() : [];
+
+        // Fetch subjects & faculty for this department
+        const presetRes = await fetch(`/api/upload/preset-grid/${branchId}`);
+        if (presetRes.ok) {
+            const presetData = await presetRes.json();
+            inlineMasterSubjects = presetData.knownSubjects || metaOptions.subjects || [];
+            inlineMasterFaculty = presetData.knownFaculty || metaOptions.faculty || [];
+            studioSubjectsList = inlineMasterSubjects;
+            studioFacultyList = inlineMasterFaculty;
+            
+            if (existing && existing.length > 0) {
+                // Populate from existing database records
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                inlineMasterGridData = {};
+                days.forEach(d => {
+                    inlineMasterGridData[d] = {};
+                    for (let p = 1; p <= 7; p++) {
+                        inlineMasterGridData[d][p] = {
+                            day: d,
+                            period: p,
+                            subject_id: null,
+                            subject_code: '',
+                            subject_name: 'Free Slot',
+                            faculty_id: null,
+                            faculty_name: '',
+                            room: `LH-${101 + (p % 3)}`,
+                            isFree: true
+                        };
+                    }
+                });
+
+                existing.forEach(entry => {
+                    if (inlineMasterGridData[entry.day] && inlineMasterGridData[entry.day][entry.period]) {
+                        inlineMasterGridData[entry.day][entry.period] = {
+                            day: entry.day,
+                            period: entry.period,
+                            subject_id: entry.subject_id,
+                            subject_code: entry.subject_code,
+                            subject_name: entry.subject_name,
+                            faculty_id: entry.faculty_id,
+                            faculty_name: entry.faculty_name,
+                            room: entry.room || `LH-${101 + (entry.period % 3)}`,
+                            isFree: false
+                        };
+                    }
+                });
+            } else {
+                // Default to structured preset schedule
+                inlineMasterGridData = presetData.grid || {};
+            }
+        }
+        renderInlineMasterSchedule();
+    } catch (e) {
+        console.error("Error initializing inline master editor:", e);
     }
 }
 
+function handleMasterFileSelect(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    inlineMasterFile = file;
+    const nameEl = document.getElementById('masterSelectedFileName');
+    const sizeEl = document.getElementById('masterSelectedFileSize');
+    const infoEl = document.getElementById('masterSelectedFileInfo');
+    const previewBox = document.getElementById('inlineMasterImagePreviewBox');
+    const imgEl = document.getElementById('inlineMasterImageEl');
+
+    if (nameEl) nameEl.innerText = file.name;
+    if (sizeEl) sizeEl.innerText = `${(file.size / 1024).toFixed(1)} KB`;
+    if (infoEl) infoEl.classList.remove('hidden');
+
+    if (file.type.startsWith('image/')) {
+        inlineMasterFileUrl = URL.createObjectURL(file);
+        if (imgEl) imgEl.src = inlineMasterFileUrl;
+        if (previewBox) previewBox.classList.remove('hidden');
+    } else {
+        if (previewBox) previewBox.classList.add('hidden');
+    }
+
+    // Automatically structure the 6-Day x 7-Period weekly timetable below
+    autoPopulateInlineMasterSchedule();
+    showToast(`📸 Timetable document (${file.name}) loaded! Structured 7-period weekly matrix populated below. Click 'Validate & Sync'.`);
+}
+
+function toggleInlineMasterImagePreview() {
+    const box = document.getElementById('inlineMasterImagePreviewBox');
+    if (box) box.classList.toggle('hidden');
+}
+
+async function autoPopulateInlineMasterSchedule() {
+    try {
+        const res = await fetch(`/api/upload/preset-grid/${inlineMasterBranchId}`);
+        if (res.ok) {
+            const data = await res.json();
+            inlineMasterGridData = data.grid || {};
+            inlineMasterSubjects = data.knownSubjects || metaOptions.subjects || [];
+            inlineMasterFaculty = data.knownFaculty || metaOptions.faculty || [];
+            renderInlineMasterSchedule();
+            showToast('⚡ Standard curriculum schedule structured into table below!');
+        }
+    } catch (e) {
+        showToast('Error populating preset', 'error');
+    }
+}
+
+function clearInlineMasterSchedule() {
+    if (!confirm('Are you sure you want to clear all slots in this master timetable?')) return;
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    days.forEach(d => {
+        inlineMasterGridData[d] = {};
+        for (let p = 1; p <= 7; p++) {
+            inlineMasterGridData[d][p] = {
+                day: d,
+                period: p,
+                subject_id: null,
+                subject_code: '',
+                subject_name: 'Free Slot',
+                faculty_id: null,
+                faculty_name: '',
+                room: '',
+                isFree: true
+            };
+        }
+    });
+    renderInlineMasterSchedule();
+    showToast('Timetable slots cleared.');
+}
+
+function toggleInlineMasterPasteBox() {
+    const box = document.getElementById('inlineMasterPasteBox');
+    if (box) box.classList.toggle('hidden');
+}
+
+function parseAndApplyInlineMasterPaste() {
+    const txt = (document.getElementById('inlineMasterPasteTextarea')?.value || '').trim();
+    if (!txt) {
+        showToast('Please paste timetable rows into the text box first', 'error');
+        return;
+    }
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+
+    let assigned = 0;
+    let currentDayIndex = 0;
+
+    lines.forEach(line => {
+        let targetDay = days[currentDayIndex % days.length];
+        for (const d of days) {
+            if (line.toLowerCase().startsWith(d.toLowerCase())) {
+                targetDay = d;
+                break;
+            }
+        }
+
+        const tokens = line.replace(/^[A-Za-z]+[:\-\t\s]+/, '').split(/[\t,|;]+/);
+        let p = 1;
+
+        tokens.forEach(tok => {
+            if (p > 7) return;
+            const cleanTok = tok.trim().toUpperCase();
+            if (!cleanTok) return;
+
+            const matchedSub = inlineMasterSubjects.find(s => 
+                cleanTok.includes(s.subject_code.toUpperCase()) || 
+                s.subject_code.toUpperCase().includes(cleanTok) ||
+                cleanTok.includes(s.subject_name.toUpperCase().slice(0, 4))
+            );
+
+            if (matchedSub) {
+                const fac = inlineMasterFaculty[assigned % Math.max(1, inlineMasterFaculty.length)];
+                if (!inlineMasterGridData[targetDay]) inlineMasterGridData[targetDay] = {};
+                inlineMasterGridData[targetDay][p] = {
+                    day: targetDay,
+                    period: p,
+                    subject_id: matchedSub.id,
+                    subject_code: matchedSub.subject_code,
+                    subject_name: matchedSub.subject_name,
+                    faculty_id: fac ? fac.id : 1,
+                    faculty_name: fac ? fac.full_name : 'Faculty',
+                    room: `LH-${101 + (p % 3)}`,
+                    isFree: false
+                };
+                assigned++;
+            }
+            p++;
+        });
+
+        currentDayIndex++;
+    });
+
+    renderInlineMasterSchedule();
+    toggleInlineMasterPasteBox();
+    showToast(`Mapped ${assigned} period slots from pasted text!`);
+}
+
+function renderInlineMasterSchedule() {
+    const tbody = document.getElementById('inlineMasterScheduleGridBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    let activeCount = 0;
+
+    days.forEach(day => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-amber-50/30 transition";
+
+        let html = `<td class="p-3 font-black text-slate-900 bg-slate-50 text-center border-r border-slate-200 text-xs">${day}</td>`;
+
+        for (let p = 1; p <= 7; p++) {
+            const slot = inlineMasterGridData[day] && inlineMasterGridData[day][p]
+                ? inlineMasterGridData[day][p]
+                : { isFree: true, subject_code: '', subject_name: 'Free Slot', faculty_name: '', room: '' };
+
+            const isFree = slot.isFree || !slot.subject_id;
+            if (!isFree) activeCount++;
+
+            const themeClass = getSubjectThemeClass(slot.subject_code);
+
+            html += `
+                <td class="p-2 text-center">
+                    <div onclick="openInlineMasterSlotEditor('${day}', ${p})" 
+                         class="p-2 rounded-xl border-2 transition cursor-pointer ${isFree ? 'bg-slate-50 border-dashed border-slate-300 hover:border-indigo-400' : `${themeClass} border-transparent shadow-xs hover:scale-[1.02]`}">
+                        <div class="flex items-center justify-between gap-1 mb-0.5">
+                            <span class="text-[10px] font-black truncate ${isFree ? 'text-slate-500' : 'text-slate-900'}">
+                                ${isFree ? '🟢 Free Slot' : (slot.subject_code || 'Class')}
+                            </span>
+                            <span class="text-[9px] font-bold px-1 rounded bg-black/5 ${isFree ? 'text-slate-400' : 'text-slate-700'}">
+                                ${slot.room || (isFree ? '' : 'LH-101')}
+                            </span>
+                        </div>
+                        <div class="text-[11px] font-black truncate text-left ${isFree ? 'text-slate-400' : 'text-slate-900'}" title="${slot.subject_name || ''}">
+                            ${slot.subject_name || (isFree ? 'No Class' : 'Assigned')}
+                        </div>
+                        <div class="text-[10px] font-semibold truncate text-left mt-0.5 ${isFree ? 'text-slate-400' : 'text-slate-600'}">
+                            👤 ${slot.faculty_name || (isFree ? '---' : 'Teacher')}
+                        </div>
+                    </div>
+                </td>
+            `;
+        }
+
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+    });
+
+    const countText = document.getElementById('inlineMasterActiveCountText');
+    if (countText) {
+        countText.innerText = `${activeCount} Periods Configured`;
+    }
+
+    if (window.lucide) lucide.createIcons();
+}
+
+function openInlineMasterSlotEditor(day, period) {
+    activeEditingCell = { day, period, isInline: true };
+    const title = document.getElementById('studioCellEditTitle');
+    const subtitle = document.getElementById('studioCellEditSubtitle');
+    const subSel = document.getElementById('studioCellSubjectSelect');
+    const facSel = document.getElementById('studioCellFacultySelect');
+    const roomInput = document.getElementById('studioCellRoomInput');
+
+    if (title) title.innerText = `Edit ${day} Period ${period}`;
+    if (subtitle) subtitle.innerText = `Period ${period} (08:00 AM - 01:30 PM slot)`;
+
+    const slot = inlineMasterGridData[day] && inlineMasterGridData[day][period]
+        ? inlineMasterGridData[day][period]
+        : { isFree: true, subject_id: null, faculty_id: null, room: 'LH-101' };
+
+    if (subSel) {
+        let subHtml = `<option value="">-- 🟢 Mark as Free Slot / No Class --</option>`;
+        inlineMasterSubjects.forEach(s => {
+            const isSel = (slot.subject_id === s.id) ? 'selected' : '';
+            subHtml += `<option value="${s.id}" ${isSel}>${s.subject_code} - ${s.subject_name}</option>`;
+        });
+        subSel.innerHTML = subHtml;
+    }
+
+    if (facSel) {
+        let facHtml = `<option value="">-- Select Faculty Member --</option>`;
+        inlineMasterFaculty.forEach(f => {
+            const isSel = (slot.faculty_id === f.id) ? 'selected' : '';
+            facHtml += `<option value="${f.id}" ${isSel}>${f.full_name} (${f.faculty_id})</option>`;
+        });
+        facSel.innerHTML = facHtml;
+    }
+
+    if (roomInput) {
+        roomInput.value = slot.room || `LH-${101 + (period % 3)}`;
+    }
+
+    openModal('editStudioCellModal');
+}
+
+async function validateAndSyncMasterTimetable() {
+    if (!isAdminMode) {
+        showToast('Admin mode required to validate and sync timetable.', 'error');
+        openAdminVerificationModal();
+        return;
+    }
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const flatGrid = [];
+
+    days.forEach(d => {
+        for (let p = 1; p <= 7; p++) {
+            const slot = inlineMasterGridData[d] && inlineMasterGridData[d][p] ? inlineMasterGridData[d][p] : null;
+            if (slot && !slot.isFree && slot.subject_id) {
+                flatGrid.push({
+                    day: d,
+                    period: p,
+                    subject_id: slot.subject_id,
+                    faculty_id: slot.faculty_id || (inlineMasterFaculty[0] ? inlineMasterFaculty[0].id : 1),
+                    room: slot.room || `LH-${101 + (p % 3)}`
+                });
+            }
+        }
+    });
+
+    if (flatGrid.length === 0) {
+        showToast('Please schedule at least one period before syncing.', 'error');
+        return;
+    }
+
+    const targetBranch = allBranches.find(b => b.id === inlineMasterBranchId);
+    const branchName = targetBranch ? `${targetBranch.department} - ${targetBranch.branch_name}` : 'Semester Timetable';
+
+    try {
+        const btn = document.getElementById('btnValidateAndSyncMaster');
+        if (btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i><span>Validating & Synchronizing...</span>`;
+
+        const res = await fetch('/api/upload/save-master-grid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                branch_id: inlineMasterBranchId,
+                grid: flatGrid
+            })
+        });
+
+        const data = await res.json();
+        if (btn) btn.innerHTML = `<i data-lucide="check-check" class="w-5 h-5"></i><span>✅ Validate & Sync Timetable to Home Page</span>`;
+
+        if (res.ok && data.success) {
+            currentBranchId = inlineMasterBranchId;
+            renderBranchUI();
+            
+            // Switch to Home Tab
+            switchTab('timetableTab', document.getElementById('navHomeTab'));
+            await loadTimetable(currentBranchId);
+            
+            showToast(`🎉 Master Timetable for ${branchName} successfully validated & synchronized to Home page!`);
+        } else {
+            showToast(data.error || 'Failed to sync timetable', 'error');
+        }
+    } catch (e) {
+        console.error("Sync error:", e);
+        showToast('Server error synchronizing timetable', 'error');
+    }
+}
+
+// Studio Modal Helpers (Maintained for Studio view)
 async function launchQuickSyncStudioForCurrentBranch() {
     if (!isAdminMode) {
         openAdminVerificationModal();
@@ -1708,68 +2106,6 @@ async function loadStudioPresetForCurrent() {
     }
 }
 
-async function submitAdminMasterUpload(autoPopulate = false) {
-    if (!isAdminMode) {
-        showToast('Only HOD / Admin can upload or edit master timetables.', 'error');
-        openAdminVerificationModal();
-        return;
-    }
-    const branchSelect = document.getElementById('adminUploadTargetSemester');
-    const branchId = (branchSelect && branchSelect.value) ? parseInt(branchSelect.value, 10) : (currentBranchId || 4);
-    studioBranchId = branchId;
-
-    const fileInput = document.getElementById('masterTimetableFileInput');
-    const file = fileInput && fileInput.files && fileInput.files[0];
-
-    if (!file || autoPopulate) {
-        await openStudioWithPreset();
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('branch_id', branchId);
-    formData.append('masterFile', file);
-
-    try {
-        showToast('📷 Scanning timetable image with Intelligent OCR Engine...', 'info');
-        const res = await fetch('/api/upload/parse-master-image', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await res.json();
-        if (res.ok && data.success) {
-            studioImageUrl = data.fileUrl || null;
-            studioExtractedText = data.extractedText || '';
-            studioDetectedTokens = data.detectedTokens || [];
-            studioSubjectsList = data.knownSubjects || metaOptions.subjects || [];
-            studioFacultyList = data.knownFaculty || metaOptions.faculty || [];
-            studioGridData = data.grid || {};
-
-            // If OCR parsed grid was sparse, pull preset subjects as fallback base
-            const hasAssigned = Object.values(studioGridData).some(d => Object.values(d).some(s => !s.isFree && s.subject_id));
-            if (!hasAssigned) {
-                const presetRes = await fetch(`/api/upload/preset-grid/${branchId}`);
-                if (presetRes.ok) {
-                    const presetData = await presetRes.json();
-                    studioGridData = presetData.grid || {};
-                }
-            }
-
-            renderStudioUI();
-            openModal('timetableSyncStudioModal');
-            showToast(`📷 Image scanned! Verify your timetable and click 'Confirm & Publish'.`);
-        } else {
-            showToast(data.error || 'Scanner issue. Opening studio.', 'error');
-            await openStudioWithPreset();
-        }
-    } catch (e) {
-        console.error("Master upload error:", e);
-        showToast('Error during scan. Opening studio with preset.', 'error');
-        await openStudioWithPreset();
-    }
-}
-
 function renderStudioUI() {
     const branchObj = allBranches.find(b => b.id === studioBranchId);
     const branchBadge = document.getElementById('studioBranchBadge');
@@ -1777,7 +2113,6 @@ function renderStudioUI() {
         branchBadge.innerText = branchObj ? `${branchObj.department} - ${branchObj.branch_name}` : 'Selected Semester';
     }
 
-    // Image preview
     const imgEl = document.getElementById('studioImagePreview');
     const noImgNotice = document.getElementById('studioNoImageNotice');
     if (imgEl && noImgNotice) {
@@ -1792,7 +2127,6 @@ function renderStudioUI() {
         }
     }
 
-    // OCR Detected tokens
     const tokenList = document.getElementById('studioDetectedTokensList');
     if (tokenList) {
         if (studioDetectedTokens && studioDetectedTokens.length > 0) {
@@ -1806,13 +2140,11 @@ function renderStudioUI() {
         }
     }
 
-    // Raw OCR Text
     const rawPre = document.getElementById('studioRawOcrPre');
     if (rawPre) {
         rawPre.innerText = studioExtractedText || 'No text extracted.';
     }
 
-    // 6x7 Grid Table
     const tbody = document.getElementById('studioTimetableGridBody');
     if (tbody) {
         tbody.innerHTML = '';
@@ -1860,7 +2192,6 @@ function renderStudioUI() {
             tbody.appendChild(tr);
         });
 
-        // Update active count badge
         const countText = document.getElementById('studioAssignedCountText');
         if (countText) {
             countText.innerText = `${activeCount} / 42 Periods Active`;
@@ -1908,7 +2239,7 @@ function copyRawOcrText() {
 }
 
 function openStudioCellEditor(day, period) {
-    activeEditingCell = { day, period };
+    activeEditingCell = { day, period, isInline: false };
     const title = document.getElementById('studioCellEditTitle');
     const subtitle = document.getElementById('studioCellEditSubtitle');
     const subSel = document.getElementById('studioCellSubjectSelect');
@@ -1922,7 +2253,6 @@ function openStudioCellEditor(day, period) {
         ? studioGridData[day][period]
         : { isFree: true, subject_id: null, faculty_id: null, room: 'LH-101' };
 
-    // Populate subjects dropdown
     if (subSel) {
         let subHtml = `<option value="">-- 🟢 Mark as Free Slot / No Class --</option>`;
         studioSubjectsList.forEach(s => {
@@ -1932,7 +2262,6 @@ function openStudioCellEditor(day, period) {
         subSel.innerHTML = subHtml;
     }
 
-    // Populate faculty dropdown
     if (facSel) {
         let facHtml = `<option value="">-- Select Faculty Member --</option>`;
         studioFacultyList.forEach(f => {
@@ -1951,7 +2280,7 @@ function openStudioCellEditor(day, period) {
 
 function applyStudioCellEdit() {
     if (!activeEditingCell) return;
-    const { day, period } = activeEditingCell;
+    const { day, period, isInline } = activeEditingCell;
     const subSel = document.getElementById('studioCellSubjectSelect');
     const facSel = document.getElementById('studioCellFacultySelect');
     const roomInput = document.getElementById('studioCellRoomInput');
@@ -1960,46 +2289,51 @@ function applyStudioCellEdit() {
     const facId = facSel ? parseInt(facSel.value, 10) : null;
     const room = roomInput ? (roomInput.value || 'LH-101') : 'LH-101';
 
-    if (!studioGridData[day]) studioGridData[day] = {};
+    const subList = isInline ? inlineMasterSubjects : studioSubjectsList;
+    const facList = isInline ? inlineMasterFaculty : studioFacultyList;
 
-    if (!subId) {
-        studioGridData[day][period] = {
-            day,
-            period,
-            subject_id: null,
-            subject_code: '',
-            subject_name: 'Free Slot',
-            faculty_id: null,
-            faculty_name: '',
-            room: '',
-            isFree: true
-        };
+    const sub = subList.find(s => s.id === subId);
+    const fac = facList.find(f => f.id === facId);
+
+    const cellObj = (!subId) ? {
+        day,
+        period,
+        subject_id: null,
+        subject_code: '',
+        subject_name: 'Free Slot',
+        faculty_id: null,
+        faculty_name: '',
+        room: '',
+        isFree: true
+    } : {
+        day,
+        period,
+        subject_id: subId,
+        subject_code: sub ? sub.subject_code : 'SUB',
+        subject_name: sub ? sub.subject_name : 'Class',
+        faculty_id: facId || (facList[0] ? facList[0].id : 1),
+        faculty_name: fac ? fac.full_name : (facList[0] ? facList[0].full_name : 'Faculty'),
+        room: room,
+        isFree: false
+    };
+
+    if (isInline) {
+        if (!inlineMasterGridData[day]) inlineMasterGridData[day] = {};
+        inlineMasterGridData[day][period] = cellObj;
+        renderInlineMasterSchedule();
     } else {
-        const sub = studioSubjectsList.find(s => s.id === subId);
-        const fac = studioFacultyList.find(f => f.id === facId);
-
-        studioGridData[day][period] = {
-            day,
-            period,
-            subject_id: subId,
-            subject_code: sub ? sub.subject_code : 'SUB',
-            subject_name: sub ? sub.subject_name : 'Class',
-            faculty_id: facId || (studioFacultyList[0] ? studioFacultyList[0].id : 1),
-            faculty_name: fac ? fac.full_name : (studioFacultyList[0] ? studioFacultyList[0].full_name : 'Faculty'),
-            room: room,
-            isFree: false
-        };
+        if (!studioGridData[day]) studioGridData[day] = {};
+        studioGridData[day][period] = cellObj;
+        renderStudioUI();
     }
 
     closeModal('editStudioCellModal');
-    renderStudioUI();
 }
 
 function setStudioCellFree() {
     if (!activeEditingCell) return;
-    const { day, period } = activeEditingCell;
-    if (!studioGridData[day]) studioGridData[day] = {};
-    studioGridData[day][period] = {
+    const { day, period, isInline } = activeEditingCell;
+    const cellObj = {
         day,
         period,
         subject_id: null,
@@ -2010,8 +2344,18 @@ function setStudioCellFree() {
         room: '',
         isFree: true
     };
+
+    if (isInline) {
+        if (!inlineMasterGridData[day]) inlineMasterGridData[day] = {};
+        inlineMasterGridData[day][period] = cellObj;
+        renderInlineMasterSchedule();
+    } else {
+        if (!studioGridData[day]) studioGridData[day] = {};
+        studioGridData[day][period] = cellObj;
+        renderStudioUI();
+    }
+
     closeModal('editStudioCellModal');
-    renderStudioUI();
 }
 
 function clearStudioGrid() {
@@ -2058,7 +2402,6 @@ function parseAndApplyStudioPaste() {
 
     lines.forEach(line => {
         let targetDay = days[currentDayIndex % days.length];
-        // Check if line specifies day
         for (const d of days) {
             if (line.toLowerCase().startsWith(d.toLowerCase())) {
                 targetDay = d;
@@ -2066,7 +2409,6 @@ function parseAndApplyStudioPaste() {
             }
         }
 
-        // Split tokens
         const tokens = line.replace(/^[A-Za-z]+[:\-\t\s]+/, '').split(/[\t,|;]+/);
         let p = 1;
 
@@ -2075,7 +2417,6 @@ function parseAndApplyStudioPaste() {
             const cleanTok = tok.trim().toUpperCase();
             if (!cleanTok) return;
 
-            // Find matching subject
             const matchedSub = studioSubjectsList.find(s => 
                 cleanTok.includes(s.subject_code.toUpperCase()) || 
                 s.subject_code.toUpperCase().includes(cleanTok) ||

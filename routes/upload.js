@@ -323,7 +323,7 @@ router.post('/parse-master-image', requireHOS, upload.single('masterFile'), asyn
 });
 
 // 6. GENERATE STANDARD PRESET GRID FOR BRANCH
-router.get('/preset-grid/:branchId', requireHOS, async (req, res) => {
+router.get('/preset-grid/:branchId', async (req, res) => {
     const branchId = parseInt(req.params.branchId, 10);
     if (!branchId) return res.status(400).json({ error: 'Valid branchId required' });
 

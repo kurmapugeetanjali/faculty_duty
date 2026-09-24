@@ -762,60 +762,181 @@
 
       </div>
 
-      <!-- 2. MASTER TIMETABLE UPLOAD & EDIT SECTION (Admin Only) -->
+      <!-- 2. MASTER TIMETABLE UPLOAD & EDIT SECTION (Admin Only - Inline Camera & Manual Edit) -->
       <div id="masterTimetableUploadSection" class="hidden space-y-4">
-        <div class="card-colorful p-5 space-y-4 border-2 border-amber-300 bg-amber-50/30">
-          <div class="flex items-center justify-between gap-2 pb-3 border-b border-amber-200">
+        
+        <!-- Top Target Semester & Camera Upload Card -->
+        <div class="card-colorful p-5 sm:p-6 bg-gradient-to-br from-amber-50/70 via-white to-orange-50/70 border-2 border-amber-300 space-y-4 shadow-md">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-amber-200">
             <div>
-              <h3 class="text-sm sm:text-base font-black text-amber-950 flex items-center gap-2">
-                <i data-lucide="lock" class="w-4 h-4 text-amber-600"></i>
-                Edit & Update Semester Master Timetables (Admin Only)
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-200 text-amber-900 border border-amber-400">
+                👑 Admin Master Timetable Controller
+              </span>
+              <h3 class="text-base sm:text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
+                <i data-lucide="calendar" class="w-5 h-5 text-amber-600"></i>
+                Update & Structure Semester Master Timetable
               </h3>
-              <p class="text-xs text-amber-900">
-                Upload timetable photo/PDF or synchronize master schedules for any engineering branch and semester.
+              <p class="text-xs text-slate-600 mt-0.5">
+                Snap a camera photo of the timetable, upload a PDF/image, or directly edit the 7-period weekly matrix below. Click <strong>Validate & Sync</strong> to publish live to the Home page.
               </p>
             </div>
+            
             <div class="flex items-center gap-2">
-              <button onclick="openAddPeriodModal()" class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm transition">
-                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                <span>+ Add Single Slot</span>
-              </button>
-              <span class="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-200 text-amber-900 border border-amber-300">
-                Admin Exclusive
+              <span class="px-3 py-1 rounded-xl text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                Admin Mode Active
               </span>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Target Branch & Semester</label>
-              <select id="adminUploadTargetSemester" onchange="onAdminTargetSemesterChanged()" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800">
-                <!-- Dynamically populated with all 25 branches via app.js -->
-              </select>
+          <!-- Target Semester Selector -->
+          <div class="bg-white p-3.5 rounded-2xl border border-amber-200 shadow-xs space-y-1.5">
+            <label class="block text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Target Engineering Branch & Semester to Update:</span>
+            </label>
+            <select id="adminUploadTargetSemester" onchange="onAdminSemesterDropdownChanged()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-black text-slate-800 focus:outline-none focus:border-indigo-500">
+              <!-- Dynamically populated with all 25 branches via app.js -->
+            </select>
+          </div>
+
+          <!-- Camera / Photo / PDF Dropzone Card -->
+          <div class="border-2 border-dashed border-amber-300 hover:border-amber-500 rounded-2xl p-5 text-center bg-white/90 transition cursor-pointer" onclick="document.getElementById('masterTimetableFileInput').click()">
+            <input type="file" id="masterTimetableFileInput" accept="image/*,application/pdf,.csv,.json" capture="environment" onchange="handleMasterFileSelect(event)" class="hidden" />
+            
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center mx-auto mb-2.5 shadow-md shadow-orange-500/20">
+              <i data-lucide="camera" class="w-7 h-7 text-slate-950"></i>
             </div>
+            
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Upload Timetable Image / PDF</label>
-              <input type="file" id="masterTimetableFileInput" accept="image/*,application/pdf,.csv,.json" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs" />
+              <p class="text-sm font-black text-slate-800 flex items-center justify-center gap-1.5">
+                <span>📸 Tap to Snap Photo (Phone Camera) or Upload Timetable Image / PDF</span>
+              </p>
+              <p class="text-xs text-slate-500 mt-1">
+                Supports live camera snap, JPG, PNG, WEBP, and PDF timetable documents (Max 15MB)
+              </p>
+            </div>
+
+            <!-- Selected File Badge -->
+            <div id="masterSelectedFileInfo" class="hidden flex items-center justify-center gap-2 mt-3 bg-amber-50 py-2 px-4 rounded-xl border border-amber-200 w-fit mx-auto">
+              <i data-lucide="file-check" class="w-4 h-4 text-emerald-600"></i>
+              <span id="masterSelectedFileName" class="text-xs font-black text-slate-800"></span>
+              <span id="masterSelectedFileSize" class="text-[10px] text-amber-800 bg-amber-200 px-1.5 py-0.2 rounded font-mono"></span>
             </div>
           </div>
 
-          <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200">
+          <!-- Uploaded Image Preview Viewer (Collapsible) -->
+          <div id="inlineMasterImagePreviewBox" class="hidden bg-slate-900 rounded-2xl p-3.5 border border-slate-800 space-y-2 text-white">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                <i data-lucide="image" class="w-3.5 h-3.5"></i>
+                <span>Uploaded Timetable Document Preview</span>
+              </span>
+              <button type="button" onclick="toggleInlineMasterImagePreview()" class="text-xs text-slate-400 hover:text-white font-bold">
+                Hide Preview ✕
+              </button>
+            </div>
+            <div class="max-h-64 overflow-auto rounded-xl flex items-center justify-center bg-slate-950 p-2">
+              <img id="inlineMasterImageEl" src="" alt="Uploaded Timetable" class="max-h-60 rounded-lg object-contain shadow" />
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons Toolbar -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-amber-200">
             <div class="flex items-center gap-2 flex-wrap">
-              <button type="button" onclick="openStudioWithPreset()" class="px-4 py-2.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-2 transition">
+              <button type="button" onclick="autoPopulateInlineMasterSchedule()" class="px-3.5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-1.5 transition cursor-pointer">
                 <i data-lucide="zap" class="w-4 h-4 text-amber-300"></i>
                 <span>⚡ Auto-Fill Semester Preset</span>
               </button>
-              <button type="button" onclick="openStudioBlank()" class="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-xs flex items-center gap-1.5 transition">
-                <i data-lucide="grid" class="w-4 h-4 text-indigo-600"></i>
-                <span>📋 Open Blank Studio Editor</span>
+              <button type="button" onclick="toggleInlineMasterPasteBox()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-xs flex items-center gap-1.5 transition cursor-pointer">
+                <i data-lucide="clipboard" class="w-4 h-4 text-purple-600"></i>
+                <span>📋 Paste Timetable Text / CSV</span>
+              </button>
+              <button type="button" onclick="clearInlineMasterSchedule()" class="px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1 cursor-pointer">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>Clear All</span>
               </button>
             </div>
-            <button type="button" onclick="submitAdminMasterUpload(false)" class="px-6 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white shadow-md shadow-orange-500/20 flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
-              <i data-lucide="scan" class="w-4 h-4"></i>
-              <span>📷 Scan Image & Open Verification Studio</span>
+
+            <div class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+              <span>👇 <strong>Direct Manual Edit:</strong> Click any cell in the table below to customize.</span>
+            </div>
+          </div>
+
+          <!-- Collapsible Paste Box -->
+          <div id="inlineMasterPasteBox" class="hidden bg-purple-50/80 rounded-2xl p-3 border border-purple-200 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-black text-purple-950">📋 Paste Timetable Rows (Excel / Word / Text)</label>
+              <button type="button" onclick="toggleInlineMasterPasteBox()" class="text-xs font-bold text-purple-700 hover:underline">Close</button>
+            </div>
+            <textarea id="inlineMasterPasteTextarea" rows="3" placeholder="Example:&#10;Monday: CS-501, CS-502, CS-503, CS-504, CS-505, CS-506&#10;Tuesday: CS-502, CS-501, CS-504, CS-503, CS-506, CS-505" class="w-full bg-white border border-purple-300 rounded-xl p-2.5 text-xs font-mono text-slate-800 focus:outline-none"></textarea>
+            <div class="flex justify-end">
+              <button type="button" onclick="parseAndApplyInlineMasterPaste()" class="px-4 py-1.5 rounded-xl text-xs font-black bg-purple-600 text-white hover:bg-purple-700 shadow-sm transition">
+                Map into Table Below
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inline Master Timetable Matrix Editor (6 Days x 7 Periods) -->
+        <div class="card-colorful p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="inlineMasterTargetBadge" class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-indigo-600 text-white shadow-xs">
+                  CSE 5th Sem
+                </span>
+                <span class="text-xs font-black text-slate-800">Master Weekly Schedule (Periods 1 to 7)</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1">
+                ✍️ Click any period slot below to choose the <strong>Subject</strong>, <strong>Faculty</strong>, and <strong>Room</strong>, then click <strong>Validate & Sync</strong>.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="inlineMasterCountBadge" class="px-3 py-1 rounded-xl text-xs font-black bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="inlineMasterActiveCountText">36 Periods Configured</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Interactive 6-Day x 7-Period Table -->
+          <div class="mobile-timetable-container overflow-x-auto rounded-2xl border border-slate-200">
+            <table class="w-full text-left border-collapse min-w-[750px] sm:min-w-[950px]" id="inlineMasterScheduleTable">
+              <thead>
+                <tr class="bg-slate-900 text-white text-[11px] font-black uppercase">
+                  <th class="p-3 w-24 text-center">Day</th>
+                  <th class="p-2.5 text-center">Period 1<br><span class="text-[9px] font-normal text-slate-400">08:00-08:45</span></th>
+                  <th class="p-2.5 text-center">Period 2<br><span class="text-[9px] font-normal text-slate-400">08:45-09:30</span></th>
+                  <th class="p-2.5 text-center">Period 3<br><span class="text-[9px] font-normal text-slate-400">09:30-10:15</span></th>
+                  <th class="p-2.5 text-center bg-slate-800 border-l border-r border-slate-700">
+                    Period 4<br><span class="text-[9px] font-normal text-amber-300">10:30-11:15</span>
+                    <span class="block text-[8px] text-amber-400 font-bold">☕ Break 10:15-10:30</span>
+                  </th>
+                  <th class="p-2.5 text-center">Period 5<br><span class="text-[9px] font-normal text-slate-400">11:15-12:00</span></th>
+                  <th class="p-2.5 text-center">Period 6<br><span class="text-[9px] font-normal text-slate-400">12:00-12:45</span></th>
+                  <th class="p-2.5 text-center">Period 7<br><span class="text-[9px] font-normal text-slate-400">12:45-01:30</span></th>
+                </tr>
+              </thead>
+              <tbody id="inlineMasterScheduleGridBody" class="divide-y divide-slate-100 text-xs">
+                <!-- Dynamically populated via app.js -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- PROMINENT VALIDATE & SYNC BUTTON (Directly Below Table) -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200">
+            <div class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+              <span>Validates subject assignments and atomically updates the live Home Page schedule.</span>
+            </div>
+
+            <button type="button" onclick="validateAndSyncMasterTimetable()" id="btnValidateAndSyncMaster" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2.5 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+              <i data-lucide="check-check" class="w-5 h-5"></i>
+              <span>✅ Validate & Sync Timetable to Home Page</span>
             </button>
           </div>
         </div>
+
       </div>
 
     </section>
