@@ -1,0 +1,105 @@
+{
+  "name": "Faculty Substitution Background Comparison Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-faculty-availability",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook: Substitution Request Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/n8n/compare-substitution",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"date\": \"{{ $json.body.date }}\",\n  \"day\": \"{{ $json.body.day }}\",\n  \"period\": {{ $json.body.period }},\n  \"original_faculty_id\": {{ $json.body.original_faculty_id || 0 }}\n}",
+        "options": {}
+      },
+      "id": "2",
+      "name": "HTTP Request: Execute Comparison Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process and format the available faculty candidates\nconst items = $input.all();\nconst payload = items[0].json;\n\nconst freeTeachers = payload.availableFaculty || [];\nconst formattedResults = freeTeachers.map(teacher => ({\n  id: teacher.id,\n  faculty_id: teacher.faculty_id,\n  name: teacher.full_name,\n  contact_number: teacher.phone,\n  email: teacher.email,\n  department: teacher.department,\n  designation: teacher.designation,\n  whatsapp_link: `https://wa.me/${teacher.phone.replace(/[^0-9]/g, '')}?text=Dear%20Prof.%20${encodeURIComponent(teacher.full_name)},%20can%20you%20please%20substitute%20for%20my%20period%20on%20${payload.criteria.day}%20Period%20${payload.criteria.period}?`,\n  free_verified: true\n}));\n\nreturn [{\n  json: {\n    status: \"success\",\n    engine: \"n8n Background Pipeline\",\n    total_candidates_found: formattedResults.length,\n    criteria: payload.criteria,\n    pipeline_trace: payload.pipelineTrace,\n    candidates: formattedResults\n  }\n}];"
+      },
+      "id": "3",
+      "name": "Code Node: Format Directory & WhatsApp Links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        950,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Substitution Request Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request: Execute Comparison Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request: Execute Comparison Engine": {
+      "main": [
+        [
+          {
+            "node": "Code Node: Format Directory & WhatsApp Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Node: Format Directory & WhatsApp Links": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

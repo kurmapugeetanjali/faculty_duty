@@ -2,657 +2,879 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Faculty Duty & Substitute Scheduler</title>
-
-  <!-- Tesseract.js for Image-to-Text OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <style>
-    :root {
-      --primary: #4f46e5;
-      --primary-light: #e0e7ff;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #1e293b;
-      --border: #e2e8f0;
-      --sidebar-width: 230px;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
-
-    /* ================= HEADER ================= */
-
-    header {
-      height: 64px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 20px;
-      background: white;
-      border-bottom: 1px solid var(--border);
-
-      /* Header stays above sidebar */
-      margin-left: var(--sidebar-width);
-    }
-
-    h1 {
-      font-size: 1.25rem;
-      color: var(--primary);
-    }
-
-    #user-profile {
-      font-size: 0.9rem;
-    }
-
-    /* ================= LEFT SIDEBAR ================= */
-
-    nav {
-      position: fixed;
-      left: 0;
-      top: 0;
-
-      width: var(--sidebar-width);
-      height: 100vh;
-
-      background: white;
-      border-right: 1px solid var(--border);
-
-      display: flex;
-      flex-direction: column;
-
-      padding: 20px 15px;
-
-      z-index: 1000;
-    }
-
-    /* Sidebar title */
-
-    nav::before {
-      content: "Faculty Scheduler";
-      display: block;
-
-      color: var(--primary);
-      font-size: 1.2rem;
-      font-weight: 700;
-
-      padding: 0 10px 25px 10px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 20px;
-    }
-
-    nav button {
-      width: 100%;
-
-      padding: 13px 15px;
-      margin-bottom: 8px;
-
-      border: none;
-      background: transparent;
-
-      color: var(--primary);
-
-      border-radius: 8px;
-
-      font-size: 0.9rem;
-      font-weight: 600;
-
-      text-align: left;
-
-      cursor: pointer;
-
-      transition: 0.2s ease;
-    }
-
-    nav button:hover {
-      background: var(--primary-light);
-    }
-
-    nav button.active {
-      background: var(--primary);
-      color: white;
-    }
-
-    /* ================= MAIN CONTENT ================= */
-
-    main {
-      margin-left: var(--sidebar-width);
-      padding: 20px;
-    }
-
-    /* ================= TAB CONTENT ================= */
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    /* ================= CARDS ================= */
-
-    .card {
-      background: var(--card);
-
-      padding: 16px;
-
-      border-radius: 12px;
-
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-
-      margin-bottom: 16px;
-    }
-
-    .card h3 {
-      margin-bottom: 5px;
-    }
-
-    /* ================= GRID ================= */
-
-    .grid {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    }
-
-    /* ================= FORM ================= */
-
-    label {
-      display: block;
-
-      font-size: 0.85rem;
-      font-weight: 600;
-
-      margin-bottom: 4px;
-      margin-top: 12px;
-    }
-
-    input,
-    select,
-    button {
-      width: 100%;
-
-      padding: 10px;
-
-      border: 1px solid #cbd5e1;
-
-      border-radius: 6px;
-
-      font-size: 0.9rem;
-    }
-
-    input:focus,
-    select:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
-
-    button.btn-action {
-      background: var(--primary);
-
-      color: white;
-
-      font-weight: 600;
-
-      border: none;
-
-      margin-top: 12px;
-
-      cursor: pointer;
-    }
-
-    button.btn-action:hover {
-      background: #4338ca;
-    }
-
-    /* ================= TABLE ================= */
-
-    table {
-      width: 100%;
-
-      border-collapse: collapse;
-
-      margin-top: 10px;
-
-      font-size: 0.85rem;
-    }
-
-    th,
-    td {
-      border: 1px solid var(--border);
-
-      padding: 10px;
-
-      text-align: center;
-    }
-
-    th {
-      background: #f1f5f9;
-      font-weight: 700;
-    }
-
-    td[contenteditable="true"] {
-      cursor: text;
-      background: #ffffff;
-    }
-
-    td[contenteditable="true"]:focus {
-      outline: 2px solid var(--primary);
-      background: #eef2ff;
-    }
-
-    /* ================= STATUS ================= */
-
-    .status-absent {
-      background: #fee2e2;
-
-      color: #991b1b;
-
-      padding: 2px 6px;
-
-      border-radius: 4px;
-    }
-
-    /* ================= OCR ================= */
-
-    #ocrStatus {
-      margin-top: 10px;
-      font-weight: 600;
-    }
-
-    #ocrResult {
-      background: #f1f5f9;
-
-      padding: 10px;
-
-      margin-top: 8px;
-
-      border-radius: 6px;
-
-      font-size: 0.8rem;
-
-      white-space: pre-wrap;
-
-      min-height: 50px;
-    }
-
-    /* ================= MOBILE ================= */
-
-    @media (max-width: 700px) {
-
-      :root {
-        --sidebar-width: 190px;
-      }
-
-      header {
-        padding: 0 15px;
-      }
-
-      #user-profile {
-        font-size: 0.75rem;
-      }
-
-      nav {
-        width: 190px;
-      }
-
-      nav button {
-        font-size: 0.8rem;
-      }
-
-      main {
-        padding: 15px;
-      }
-    }
-
-    /* ================= SMALL MOBILE ================= */
-
-    @media (max-width: 500px) {
-
-      :root {
-        --sidebar-width: 160px;
-      }
-
-      nav {
-        width: 160px;
-        padding: 15px 10px;
-      }
-
-      nav::before {
-        font-size: 1rem;
-        padding-bottom: 18px;
-      }
-
-      nav button {
-        padding: 10px;
-        font-size: 0.75rem;
-      }
-
-      header {
-        margin-left: var(--sidebar-width);
-      }
-
-      #user-profile {
-        display: none;
-      }
-
-      main {
-        margin-left: var(--sidebar-width);
-        padding: 10px;
-      }
-
-      .card {
-        padding: 12px;
-      }
-    }
-    /* ================= LOGIN OVERLAY ================= */
-    #login-overlay {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(5px);
-      z-index: 9999;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    #login-card {
-      background: white;
-      padding: 30px;
-      border-radius: 12px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    #login-card h2 { margin-bottom: 20px; color: var(--primary); text-align: center; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>F.A.S.T - Faculty Alternative Substitute Tracker (CSE)</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Custom Theme CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
+<body class="min-h-screen flex flex-col antialiased bg-slate-950 text-slate-100">
 
-<body>
+  <!-- ================= FULL SCREEN LOGIN GATE (USER MUST LOGIN 1ST TO USE WEBSITE) ================= -->
+  <div id="loginScreenView" class="min-h-screen flex flex-col justify-center items-center p-4 bg-gradient-to-br from-slate-950 via-indigo-950 to-purple-950 relative overflow-hidden">
+    
+    <!-- Decorative Glowing Background Orbs -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-pink-600/20 blur-3xl pointer-events-none"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-3xl pointer-events-none"></div>
 
-  <!-- ================= LOGIN OVERLAY ================= -->
-  <div id="login-overlay">
-    <div id="login-card">
-      <h2>Scheduler Login</h2>
-      <form id="loginForm">
-        <label>Faculty ID</label>
-        <input type="text" id="loginFacultyId" required placeholder="e.g. HOS001 or FAC001" />
-        <label>Password</label>
-        <input type="password" id="loginPassword" required placeholder="password123" />
-        <button type="submit" class="btn-action">Login</button>
-      </form>
-      <div id="loginError" style="color: red; margin-top: 10px; font-size: 0.85rem; text-align: center;"></div>
-    </div>
-  </div>
-
-  <!-- ================= LEFT NAVIGATION ================= -->
-
-  <nav>
-    <button class="active" onclick="switchTab('timetable', this)">
-      My Schedule
-    </button>
-
-    <button onclick="switchTab('substitute', this)">
-      Adjust/Substitute
-    </button>
-
-    <button onclick="switchTab('scan', this)">
-      Upload Paper Sheet
-    </button>
-
-    <button onclick="switchTab('attendance', this)">
-      Attendance Track
-    </button>
-  </nav>
-
-
-  <!-- ================= HEADER ================= -->
-
-  <header>
-    <h1>Faculty Scheduler</h1>
-
-    <span id="user-profile">
-      Prof. Sarah (ID: CS102)
-    </span>
-  </header>
-
-
-  <!-- ================= MAIN CONTENT ================= -->
-
-  <main>
-
-    <!-- ================= TAB 1: TIMETABLE ================= -->
-
-    <section id="timetable" class="tab-content active">
-
-      <div class="card">
-
-        <h3>Weekly Schedule (Editable Shortcuts)</h3>
-
-        <p style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">
-          Use shortcuts (e.g., CS = Computer Sci, MAT = Maths).
-        </p>
-
-        <div style="overflow-x:auto;">
-
-          <table>
-
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th>P1</th>
-                <th>P2</th>
-                <th>P3</th>
-                <th>P4</th>
-              </tr>
-            </thead>
-
-            <tbody id="timetableBody">
-              <!-- Timetable rows will be injected here via JavaScript -->
-            </tbody>
-
-          </table>
-
+    <div class="w-full max-w-md relative z-10 space-y-6">
+      
+      <!-- Brand Logo & Header -->
+      <div class="text-center space-y-2">
+        <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 via-pink-500 to-indigo-600 flex items-center justify-center text-white font-black shadow-2xl shadow-indigo-600/40 mx-auto transform hover:scale-105 transition">
+          <i data-lucide="sparkles" class="w-9 h-9 text-white"></i>
         </div>
-
-        <button class="btn-action" onclick="saveSchedule()">
-          Save Changes
-        </button>
-
+        <div>
+          <span class="inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-1">
+            STATE POLYTECHNIC • CSE DEPARTMENT
+          </span>
+          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-1.5">
+            F.A.S.T <span class="text-amber-300">CSE</span>
+          </h1>
+          <p class="text-xs text-indigo-200 font-bold mt-1">
+            Faculty Alternative Substitute Tracker
+          </p>
+        </div>
       </div>
 
-    </section>
+      <!-- Feature Highlight Badges -->
+      <div class="flex items-center justify-center gap-2 flex-wrap text-[11px] font-bold text-slate-300">
+        <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
+          🕒 08:00 AM - 01:30 PM (Break 10:15-10:30)
+        </span>
+        <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
+          ⚡ Background Substitute Match
+        </span>
+        <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
+          🛡️ Exam Duty Roster
+        </span>
+      </div>
 
+      <!-- Login Card -->
+      <div class="bg-white/10 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-white/20 shadow-2xl space-y-5 text-left">
+        
+        <div class="border-b border-white/10 pb-3">
+          <h2 class="text-lg font-black text-white flex items-center gap-2">
+            <i data-lucide="log-in" class="w-5 h-5 text-amber-400"></i>
+            <span>Faculty Login</span>
+          </h2>
+          <p class="text-xs text-indigo-200 mt-0.5 font-medium">
+            Login with your Name or Faculty ID to access schedules and substitution tracker.
+          </p>
+        </div>
 
-    <!-- ================= TAB 2: SUBSTITUTE ================= -->
+        <!-- Login Form -->
+        <form id="portalLoginForm" onsubmit="submitManualLogin(event)" class="space-y-4">
+          <div id="loginErrorMessage" class="hidden p-3 rounded-xl bg-red-500/20 border border-red-500/40 text-xs font-bold text-red-200"></div>
 
-    <section id="substitute" class="tab-content">
+          <div>
+            <label class="block text-xs font-black text-indigo-200 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <i data-lucide="user" class="w-3.5 h-3.5 text-amber-400"></i>
+              Faculty Name / ID
+            </label>
+            <input type="text" id="manualFacultyIdInput" required placeholder="Enter your Name or Faculty ID" 
+                   class="w-full bg-slate-900/90 border border-indigo-400/40 rounded-xl p-3 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+          </div>
 
-      <div class="card">
+          <div>
+            <label class="block text-xs font-black text-indigo-200 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="key" class="w-3.5 h-3.5 text-amber-400"></i>
+                Password
+              </span>
+              <span class="text-[10px] text-indigo-300 font-normal">1 uppercase • 1 special character</span>
+            </label>
+            <div class="relative flex items-center">
+              <input type="password" id="manualPasswordInput" required placeholder="Enter password (e.g. Fast@2026, Pass@1)" 
+                     class="w-full bg-slate-900/90 border border-indigo-400/40 rounded-xl p-3 pr-11 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+              <button type="button" onclick="togglePasswordVisibility('manualPasswordInput', 'passwordToggleIcon')" class="absolute right-2.5 p-1.5 rounded-lg text-slate-400 hover:text-amber-300 transition" title="Show / Hide Password">
+                <i id="passwordToggleIcon" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+            <p class="text-[10px] text-indigo-300/90 mt-1 flex items-center gap-1">
+              <i data-lucide="shield" class="w-3 h-3 text-amber-400"></i>
+              <span>Must contain at least 1 uppercase letter (A-Z) and 1 special character (@, #, $, !, etc.).</span>
+            </p>
+          </div>
 
-        <h3>Request Period Adjustment</h3>
-
-        <form id="subForm">
-
-          <label>Select Date</label>
-
-          <input type="date" id="subDate" required onchange="checkAvailability()" />
-
-
-          <label>Period & Branch (Timetable ID)</label>
-
-          <select id="subTimetable" onchange="checkAvailability()">
-
-            <option value="">-- Select Period --</option>
-          </select>
-
-
-          <label>Assign Substitute Faculty</label>
-
-          <select id="subFaculty">
-
-            <option value="">-- Select Available Faculty --</option>
-          </select>
-
-
-          <button type="submit" class="btn-action">
-            Send Request
+          <button type="submit" class="w-full py-3.5 rounded-xl text-xs sm:text-sm font-black bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 hover:from-amber-500 hover:to-rose-600 text-slate-950 shadow-xl shadow-orange-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            <span>Login to Access F.A.S.T</span>
           </button>
-
         </form>
 
       </div>
 
-    </section>
+      <!-- Live Clock & Footer Note -->
+      <div class="text-center text-[11px] text-indigo-300/80 font-medium">
+        <span id="loginGateClockDisplay"></span> • State Polytechnic Computer Engineering
+      </div>
 
+    </div>
+  </div>
 
-    <!-- ================= TAB 3: OCR ================= -->
+  <!-- ================= AUTHENTICATED APP CONTAINER (REVEALED ONLY AFTER LOGIN) ================= -->
+  <div id="authenticatedAppContainer" class="hidden min-h-screen flex flex-col bg-slate-50 text-slate-900">
 
-    <section id="scan" class="tab-content">
+    <!-- ================= TOP NOTIFICATION BANNER ================= -->
+    <div class="bg-slate-950 text-slate-300 text-[11px] py-1.5 px-4 text-center border-b border-slate-800 font-medium tracking-wide flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase">CSE DEPARTMENT</span>
+        <span class="hidden sm:inline text-slate-300">F.A.S.T — Faculty Alternative Substitute Tracker</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="liveClockDisplay" class="font-mono text-amber-400 font-bold text-[11px]"></span>
+      </div>
+    </div>
 
-      <div class="card">
+  <!-- ================= HEADER ================= -->
+  <header class="colorful-header sticky top-0 z-40 px-3 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-md">
+    
+    <!-- Logo & Project Identity -->
+    <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('timetableTab')">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-indigo-600 flex items-center justify-center text-white font-black shadow-md">
+        <i data-lucide="sparkles" class="w-4.5 h-4.5 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1">
+            F.A.S.T <span class="text-amber-300">CSE</span>
+          </h1>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 uppercase tracking-wider hidden xs:inline">
+            Live
+          </span>
+        </div>
+        <p class="text-[10px] text-indigo-200 font-medium hidden sm:block">Faculty Alternative Substitute Tracker</p>
+      </div>
+    </div>
 
-        <h3>Scan Paper Timetable Sheet</h3>
+    <!-- Header Controls: Date Picker & Profile Session & Admin Activation -->
+    <div class="flex items-center flex-wrap gap-2">
+      
+      <!-- Date Selector Pill -->
+      <div class="flex items-center bg-slate-900/90 rounded-xl px-2.5 py-1 border border-slate-700 text-xs text-white shadow-xs">
+        <i data-lucide="calendar" class="w-3.5 h-3.5 text-amber-400 mr-1.5"></i>
+        <input type="date" id="substitutionDateInput" onchange="onDateChange()" class="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer" />
+        <span id="currentDayText" class="ml-1.5 px-1.5 py-0.2 rounded bg-indigo-600 text-indigo-100 text-[10px] font-black uppercase"></span>
+      </div>
 
-        <p style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">
-          Upload a picture of your paper timetable to automatically import it.
-        </p>
+      <!-- SEPARATE DEDICATED ADMIN ACTIVATION BUTTON -->
+      <button id="headerAdminToggleBtn" onclick="openAdminVerificationModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/30 shadow-xs transition">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span id="adminButtonText">🛡️ HOD Admin Access</span>
+      </button>
 
-
-        <input
-          type="file"
-          id="imageInput"
-          accept="image/*"
-        />
-
-
-        <button
-          onclick="processImage()"
-          class="btn-action"
-        >
-          Extract Schedule
+      <!-- Logged-in Faculty Profile Pill -->
+      <div id="userProfileBadge" class="hidden items-center gap-2 bg-slate-900 border border-slate-700 text-white px-3 py-1 rounded-xl text-xs font-semibold shadow-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="userNameDisplay" class="font-black max-w-[120px] sm:max-w-none truncate">Dr. Ravi Kumar</span>
+        <span id="userRoleBadge" class="px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">FACULTY</span>
+        
+        <button onclick="logout()" class="text-slate-400 hover:text-red-400 ml-1" title="Logout">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
         </button>
+      </div>
 
+    </div>
+  </header>
 
-        <div id="ocrStatus"></div>
+  <!-- ================= NAVIGATION BAR ================= -->
+  <div class="bg-white border-b border-slate-200 px-3 sm:px-6 lg:px-8 shadow-xs sticky top-[54px] z-30">
+    <nav class="flex space-x-2 overflow-x-auto py-2 mobile-timetable-container" id="mainNavigationTabs">
+      <!-- 1. Home Tab -->
+      <button onclick="switchTab('timetableTab', this)" id="navHomeTab" class="nav-tab nav-tab-colorful-active flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition">
+        <i data-lucide="home" class="w-4 h-4"></i>
+        <span>Home</span>
+      </button>
 
+      <!-- 2. Exam Invigilation Tab -->
+      <button onclick="switchTab('invigilationTab', this)" id="navExamTab" class="nav-tab nav-tab-colorful-inactive flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition">
+        <i data-lucide="shield-check" class="w-4 h-4 text-amber-500"></i>
+        <span>Exam Invigilation</span>
+        <span id="examCountBadge" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black">3</span>
+      </button>
 
-        <pre id="ocrResult"></pre>
+      <!-- 3. Update & Edit Timetable Tab -->
+      <button onclick="switchTab('uploadTab', this)" id="navUploadTab" class="nav-tab nav-tab-colorful-inactive flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition">
+        <i data-lucide="edit-3" class="w-4 h-4 text-purple-600"></i>
+        <span>Update & Edit</span>
+      </button>
+
+      <!-- 4. Help & Guide Tab -->
+      <button onclick="switchTab('helpTab', this)" id="navHelpTab" class="nav-tab nav-tab-colorful-inactive flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition">
+        <i data-lucide="help-circle" class="w-4 h-4 text-emerald-600"></i>
+        <span>Help & Guide</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ================= MAIN CONTAINER ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-5">
+
+    <!-- ================= TAB 1: HOME (MAIN TIMETABLE + SUBSTITUTES) ================= -->
+    <section id="timetableTab" class="tab-pane active space-y-5">
+      
+      <!-- CSE Semester Selector Bar -->
+      <div class="card-colorful p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase">Computer Science & Engineering</span>
+            <span id="currentSemesterTitle" class="text-xs font-bold text-slate-500">Main Weekly Schedule</span>
+          </div>
+          <h2 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-indigo-600"></i>
+            Select CSE Semester:
+          </h2>
+        </div>
+
+        <!-- 5 Dedicated CSE Semester Buttons (Clean - No regulation text) -->
+        <div class="flex items-center gap-1.5 flex-wrap w-full md:w-auto" id="semesterPillContainer">
+          <button onclick="selectSemester(1, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
+            CSE 1st Year
+          </button>
+          <button onclick="selectSemester(2, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
+            CSE 3rd Sem
+          </button>
+          <button onclick="selectSemester(3, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
+            CSE 4th Sem
+          </button>
+          <button onclick="selectSemester(4, this)" class="semester-pill active px-3.5 py-1.5 rounded-xl text-xs font-black">
+            CSE 5th Sem
+          </button>
+          <button onclick="selectSemester(5, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
+            CSE 6th Sem
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Weekly Timetable Card for Selected Semester (Periods 1 to 7 - NO LUNCH COLUMN) -->
+      <div class="card-colorful p-4 sm:p-5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div>
+            <h3 id="timetableHeaderTitle" class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+              Main Weekly Timetable - CSE 5th Sem
+            </h3>
+            <p class="text-xs text-slate-500 font-semibold mt-0.5">
+              💡 Tap on any period box (Period 1 to 7) to find free substitute teachers and cross-check exam invigilation conflicts below.
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+              <i data-lucide="clock" class="w-3.5 h-3.5"></i> 08:00 AM - 01:30 PM (Break: 10:15 - 10:30)
+            </span>
+          </div>
+        </div>
+
+        <!-- Main Timetable Grid (Periods 1 to 7 - 08:00 AM to 01:30 PM, Break 10:15-10:30) -->
+        <div class="mobile-timetable-container overflow-x-auto timetable-outer-container">
+          <table class="w-full text-left border-collapse min-w-[750px] sm:min-w-[950px]">
+            <thead>
+              <tr class="timetable-header-row text-[11px] font-black uppercase tracking-wider">
+                <th class="p-1.5 text-center w-24">
+                  <div class="period-header-pill theme-indigo text-center">
+                    <span class="text-xs font-black">Day</span>
+                  </div>
+                </th>
+                <th class="p-1.5 text-center">
+                  <div class="period-header-pill theme-sky text-center">
+                    <div>Period 1</div>
+                    <span class="text-[10px] font-extrabold text-sky-800">08:00 - 08:45</span>
+                  </div>
+                </th>
+                <th class="p-1.5 text-center">
+                  <div class="period-header-pill theme-sky text-center">
+                    <div>Period 2</div>
+                    <span class="text-[10px] font-extrabold text-sky-800">08:45 - 09:30</span>
+                  </div>
+                </th>
+                <th class="p-1.5 text-center">
+                  <div class="period-header-pill theme-sky text-center">
+                    <div>Period 3</div>
+                    <span class="text-[10px] font-extrabold text-sky-800">09:30 - 10:15</span>
+                  </div>
+                </th>
+                <th class="p-1.5 text-center">
+                  <div class="period-header-pill theme-break text-center">
+                    <div>Period 4</div>
+                    <span class="text-[10px] font-extrabold text-amber-900">10:30 - 11:15</span>
+                    <span class="block text-[9px] text-amber-900 bg-amber-200/90 px-1.5 py-0.2 rounded font-extrabold tracking-tight mt-0.5 mx-auto w-fit">☕ Break 10:15-10:30</span>
+                  </div>
+                </th>
+                <th class="p-1.5 text-center">
+                  <div class="period-header-pill theme-purple text-center">
+                    <div>Period 5</div>
+                    <span class="text-[10px] font-extrabold text-purple-800">11:15 - 12:00</span>
+                  </div>
+                </th>
+                <th class="p-1.5 text-center">
+                  <div class="period-header-pill theme-purple text-center">
+                    <div>Period 6</div>
+                    <span class="text-[10px] font-extrabold text-purple-800">12:00 - 12:45</span>
+                  </div>
+                </th>
+                <th class="p-1.5 text-center">
+                  <div class="period-header-pill theme-purple text-center">
+                    <div>Period 7</div>
+                    <span class="text-[10px] font-extrabold text-purple-800">12:45 - 01:30</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="masterTimetableGridBody" class="text-xs">
+              <!-- Dynamically populated via app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================= FREE FACULTY & INVIGILATION COMPARISON RESULTS ================= -->
+      <div id="substitutionResultsPanel" class="card-colorful p-4 sm:p-6 bg-white border border-slate-200 space-y-4 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="subPanelPeriodBadge" class="px-3 py-1 rounded-xl text-xs font-black bg-indigo-600 text-white shadow-sm">
+                Monday Period 1
+              </span>
+              <span id="availableFacultyCount" class="text-xs font-black text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                Evaluating Candidates...
+              </span>
+            </div>
+            <h3 id="subPanelTitle" class="text-base sm:text-xl font-black text-slate-900 mt-1">
+              Available Substitute Faculty Candidates
+            </h3>
+            <p id="subPanelSubtitle" class="text-xs text-slate-600 font-semibold mt-0.5">
+              Comparison across Master Timetable, Personal Schedules, and Exam Invigilation Rosters.
+            </p>
+          </div>
+          <div class="text-xs font-bold text-slate-500 italic bg-white/70 px-3 py-1.5 rounded-xl border border-indigo-100">
+            👈 Direct Contact via 1-Click Call or WhatsApp
+          </div>
+        </div>
+
+        <!-- Candidate Faculty Cards Grid -->
+        <div id="availableFacultyList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="noFacultyAvailableState" class="hidden p-8 text-center bg-white/80 rounded-2xl border border-slate-200 space-y-2">
+          <i data-lucide="alert-circle" class="w-8 h-8 text-amber-500 mx-auto"></i>
+          <h4 class="text-sm font-black text-slate-900">No Free Faculty Available for This Period</h4>
+          <p class="text-xs text-slate-500 max-w-md mx-auto">
+            All department faculty are currently scheduled for active classes in other semesters or assigned to exam duties.
+          </p>
+        </div>
 
       </div>
 
     </section>
 
-
-    <!-- ================= TAB 4: ATTENDANCE ================= -->
-
-    <section id="attendance" class="tab-content">
-
-      <div class="card">
-
-        <h3>Absence Tracker</h3>
-
-
-        <div
-          class="grid"
-          style="margin-bottom:12px;"
-        >
-
-          <div
-            style="
-              background:#fef2f2;
-              padding:12px;
-              border-radius:8px;
-              text-align:center;
-            "
-          >
-
-            <h4 style="color:#b91c1c;">
-              2 Days
-            </h4>
-
-            <span style="font-size:0.75rem;">
-              This Month
+    <!-- ================= TAB 2: EXAM INVIGILATION (ADMIN SCHEDULE UPLOAD + ROSTER) ================= -->
+    <section id="invigilationTab" class="tab-pane hidden space-y-5">
+      
+      <!-- Top Overview Card -->
+      <div class="card-colorful p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-slate-900/5 border border-amber-200">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-white tracking-wider">
+              🛡️ Examination Duties
             </span>
-
-          </div>
-
-
-          <div
-            style="
-              background:#f0fdf4;
-              padding:12px;
-              border-radius:8px;
-              text-align:center;
-            "
-          >
-
-            <h4 style="color:#15803d;">
-              94%
-            </h4>
-
-            <span style="font-size:0.75rem;">
-              Attendance Rate
+            <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black">
+              Conflict Tracking Active
             </span>
-
           </div>
+          <h2 class="text-base sm:text-xl font-black text-slate-900 flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-6 h-6 text-amber-500"></i>
+            CSE Exam Invigilation Management
+          </h2>
+          <p class="text-xs text-slate-500 font-medium mt-0.5">
+            View scheduled examination duty rosters. Admin can upload official duty notices, images, or PDFs and manage assignments.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div id="invigAdminNotice" class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold px-3 py-1.5 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-700"></i>
+              <span>Admin Log-in Required to Upload / Delete Exam Schedules</span>
+            </span>
+            <button type="button" onclick="openAdminVerificationModal()" class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              <span>🛡️ HOD Admin Access</span>
+            </button>
+          </div>
+          <button id="btnClearCompletedExams" onclick="clearCompletedExams()" class="hidden px-3.5 py-1.5 rounded-xl text-xs font-black bg-slate-800 hover:bg-red-700 text-white border border-slate-700 flex items-center gap-1.5 shadow-sm transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 text-red-400"></i>
+            <span>🗑️ Clear Finished Exams</span>
+          </button>
+        </div>
+      </div>
 
+      <!-- ADMIN ONLY: UPLOAD EXAM INVIGILATION DUTY SCHEDULE (IMAGE / CAMERA / PDF / QUICK ENTRY) -->
+      <div id="adminInvigilationUploadCard" class="hidden card-colorful p-5 sm:p-6 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/80 border-2 border-amber-300 space-y-4 shadow-md">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-200 text-amber-900 border border-amber-400">
+              👑 Admin Exclusive Exam Schedule Upload
+            </span>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
+              <i data-lucide="upload-cloud" class="w-5 h-5 text-amber-600"></i>
+              Upload Assigned Invigilation Schedule (Photo / PDF / Quick Entry)
+            </h3>
+            <p class="text-xs text-slate-600 mt-0.5">
+              Upload the official circular photo/PDF or assign a faculty member. The system matches the faculty name to mark them on exam duty automatically.
+            </p>
+          </div>
         </div>
 
+        <form id="adminInvigUploadForm" onsubmit="submitAdminInvigilationSheet(event)" class="space-y-4">
+          
+          <!-- Dropzone for Exam Duty Photo / Camera Snap / PDF -->
+          <div class="border-2 border-dashed border-amber-300 hover:border-amber-500 rounded-2xl p-5 text-center bg-white/90 transition cursor-pointer" onclick="document.getElementById('adminInvigFileInput').click()">
+            <input type="file" id="adminInvigFileInput" accept="image/*,application/pdf" capture="environment" onchange="handleExamDutyFileSelect(event)" class="hidden" />
+            
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2.5 shadow-inner">
+              <i data-lucide="camera" class="w-6 h-6"></i>
+            </div>
+            
+            <div>
+              <p class="text-xs sm:text-sm font-black text-slate-800">
+                Tap to Take Photo or Browse Exam Duty Notice / PDF Circular
+              </p>
+              <p class="text-[11px] text-slate-500 mt-0.5">
+                Supports Camera capture, JPG, PNG, WEBP images & PDF circulars (Max 15MB)
+              </p>
+            </div>
 
-        <h4>
-          Absence History
-        </h4>
+            <div id="selectedExamDutyFileInfo" class="hidden flex items-center justify-center gap-2 mt-2.5 bg-amber-50 py-1.5 px-3.5 rounded-xl border border-amber-200 w-fit mx-auto">
+              <i data-lucide="file-check" class="w-4 h-4 text-emerald-600"></i>
+              <span id="selectedExamDutyFileName" class="text-xs font-extrabold text-slate-800"></span>
+              <span id="selectedExamDutyFileSize" class="text-[10px] text-amber-800 bg-amber-200 px-1.5 py-0.2 rounded font-mono"></span>
+            </div>
+          </div>
 
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Exam Title / Subject</label>
+              <input type="text" id="adminExamNameInput" required placeholder="e.g. State Board Mid-I Exam" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Exam Date</label>
+              <input type="date" id="adminExamDateInput" required class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Assigned Invigilator Faculty</label>
+              <select id="adminExamFacultySelect" required class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800">
+                <!-- Populated via JS -->
+              </select>
+            </div>
+          </div>
 
-        <table>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Assigned Hall / Classroom (Optional)</label>
+            <input type="text" id="adminExamHallInput" placeholder="e.g. Drawing Hall-1 or LH-101" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800" />
+          </div>
 
-          <thead>
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-amber-200">
+            <button type="button" onclick="simulateExamDutyUpload()" class="px-3.5 py-2 rounded-xl text-xs font-black bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1.5 transition">
+              <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+              <span>Auto-Fill Demo Notice</span>
+            </button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>Upload & Add Exam Duty to Roster</span>
+            </button>
+          </div>
+        </form>
+      </div>
 
-            <tr>
-              <th>Date</th>
-              <th>Reason</th>
-              <th>Status</th>
-            </tr>
+      <!-- Invigilation Duty List Table -->
+      <div class="card-colorful p-4 sm:p-5 overflow-hidden">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <h3 class="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+            <i data-lucide="clipboard-list" class="w-4 h-4 text-amber-600"></i>
+            <span>Official Exam Duty Roster</span>
+          </h3>
+          <span class="text-xs font-bold text-slate-500">
+            💡 Faculty names on this roster are flagged with invigilation status during substitution search.
+          </span>
+        </div>
 
-          </thead>
+        <div class="mobile-timetable-container overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left border-collapse min-w-[700px]">
+            <thead>
+              <tr class="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white text-[11px] font-black uppercase tracking-wider">
+                <th class="p-3">Department</th>
+                <th class="p-3">Exam Title</th>
+                <th class="p-3">Date</th>
+                <th class="p-3">Assigned Invigilator</th>
+                <th class="p-3">Hall / Room</th>
+                <th class="p-3">Contact</th>
+                <th class="p-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="invigilationTableBody" class="divide-y divide-slate-100 text-xs">
+              <!-- Dynamically populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
+    <!-- ================= TAB 3: UPDATE & EDIT TIMETABLE ================= -->
+    <section id="uploadTab" class="tab-pane hidden space-y-5">
+      
+      <!-- Top Overview Banner -->
+      <div class="card-colorful p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-purple-900/10 via-indigo-900/10 to-slate-900/5 border border-purple-200">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-600 text-white tracking-wider">
+              📝 Timetable Editor
+            </span>
+            <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black">
+              Individual Faculty Privacy & Admin Master Control
+            </span>
+          </div>
+          <h2 class="text-base sm:text-xl font-black text-slate-900 flex items-center gap-2">
+            <i data-lucide="edit-3" class="w-6 h-6 text-purple-600"></i>
+            Update & Edit Timetables
+          </h2>
+          <p id="uploadTabSubheading" class="text-xs text-slate-500 font-medium mt-0.5">
+            Faculty manage and update their personal weekly schedule; Admin can update semester master timetables.
+          </p>
+        </div>
 
-          <tbody>
+        <!-- Mode Switcher (Visible only when Admin is active) -->
+        <div id="uploadModeSwitcher" class="hidden items-center gap-2 bg-slate-100 p-1 rounded-xl">
+          <button onclick="switchUploadMode('personal')" id="btnUploadModePersonal" class="px-3 py-1.5 rounded-lg text-xs font-black bg-purple-600 text-white shadow-sm">
+            👤 My Personal Timetable
+          </button>
+          <button onclick="switchUploadMode('master')" id="btnUploadModeMaster" class="px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 hover:text-slate-900">
+            👑 Semester Master Timetable (Admin)
+          </button>
+        </div>
+      </div>
 
-            <tr>
+      <!-- 1. PERSONAL TIMETABLE SECTION (Faculty Edits/Uploads Their Own Timetable ONLY) -->
+      <div id="personalTimetableSection" class="space-y-4">
+        
+        <!-- 3 Upload & Edit Options Card -->
+        <div class="card-colorful p-5 sm:p-6 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/70 border-2 border-purple-300 space-y-4 shadow-md">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-800 border border-purple-300">
+                📷 Photo / Camera Snap / PDF / Auto-Populate Options
+              </span>
+              <h3 class="text-base sm:text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
+                <i data-lucide="upload-cloud" class="w-5 h-5 text-purple-600"></i>
+                Update Your Personal Timetable
+              </h3>
+              <p class="text-xs text-slate-600 mt-0.5">
+                Update your schedule by taking a picture with your phone camera, uploading a PDF/image, auto-populating from the department master timetable, or directly editing the grid below.
+              </p>
+            </div>
+          </div>
 
-              <td>
-                10 Aug 2026
-              </td>
+          <!-- File / Camera Dropzone -->
+          <div class="border-2 border-dashed border-purple-300 hover:border-purple-500 rounded-2xl p-5 text-center bg-white/90 transition cursor-pointer" onclick="document.getElementById('personalTimetableFileInput').click()">
+            <input type="file" id="personalTimetableFileInput" accept="image/*,application/pdf" capture="environment" onchange="handlePersonalFileSelect(event)" class="hidden" />
+            
+            <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mx-auto mb-2.5 shadow-inner">
+              <i data-lucide="camera" class="w-6 h-6"></i>
+            </div>
+            
+            <div id="fileUploadPrompt">
+              <p class="text-sm font-black text-slate-800">
+                Tap to Take Photo (Camera) or Browse Timetable Image / PDF
+              </p>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Supports live camera snap, JPG, PNG, WEBP & PDF files (Max 15MB)
+              </p>
+            </div>
 
-              <td>
-                Sick Leave
-              </td>
+            <div id="selectedFileInfo" class="hidden flex items-center justify-center gap-2 mt-2 bg-purple-50 py-2 px-4 rounded-xl border border-purple-200 w-fit mx-auto">
+              <i data-lucide="file-check" class="w-4 h-4 text-emerald-600"></i>
+              <span id="selectedFileName" class="text-xs font-extrabold text-slate-800"></span>
+              <span id="selectedFileSize" class="text-[10px] text-purple-700 bg-purple-200 px-1.5 py-0.2 rounded"></span>
+            </div>
+          </div>
 
-              <td>
-                <span class="status-absent">
-                  Substituted
+          <!-- Quick Action Buttons -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-purple-200">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button type="button" onclick="autoPopulatePersonalSchedule()" class="px-3.5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-1.5 transition">
+                <i data-lucide="zap" class="w-4 h-4 text-amber-300"></i>
+                <span>⚡ Auto-Populate from Master Timetable</span>
+              </button>
+              <button type="button" onclick="markAllUnscheduledAsFree()" class="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                <span>✨ Mark Unassigned as FREE</span>
+              </button>
+            </div>
+            
+            <button type="button" id="btnUploadPersonalFile" onclick="submitPersonalFile()" class="px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
+              <i data-lucide="file-check-2" class="w-4 h-4"></i>
+              <span>📷 Organize & Update Timetable</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Teachers Personal Timetable Grid Display (Direct Manual Edit) -->
+        <div class="card-colorful p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="personalFacultyNameBadge" class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-indigo-100 text-indigo-800">
+                  Dr. V. Ravi Kumar
                 </span>
-              </td>
+                <span class="text-xs font-bold text-slate-500">My Weekly Timetable (Periods 1 to 7)</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1">
+                ✍️ <strong>Direct Manual Edit</strong>: Click on any period slot to toggle between <strong class="text-emerald-700 font-black">🟢 Free</strong> and <strong class="text-indigo-700 font-black">📚 Class</strong> or edit slot notes, then click <strong>💾 Save & Sync My Timetable</strong>.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                ⏱️ 08:00 AM – 01:30 PM (Break 10:15–10:30)
+              </span>
+            </div>
+          </div>
 
-            </tr>
+          <!-- Interactive Personal Timetable Table (7 Periods) -->
+          <div class="mobile-timetable-container overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left border-collapse min-w-[750px] sm:min-w-[950px]" id="personalScheduleEditorTable">
+              <thead>
+                <tr class="bg-slate-900 text-white text-[11px] font-black uppercase">
+                  <th class="p-3 w-24 text-center">Day</th>
+                  <th class="p-2.5 text-center">Period 1<br><span class="text-[9px] font-normal text-slate-400">08:00-08:45</span></th>
+                  <th class="p-2.5 text-center">Period 2<br><span class="text-[9px] font-normal text-slate-400">08:45-09:30</span></th>
+                  <th class="p-2.5 text-center">Period 3<br><span class="text-[9px] font-normal text-slate-400">09:30-10:15</span></th>
+                  <th class="p-2.5 text-center bg-slate-800 border-l border-r border-slate-700">
+                    Period 4<br><span class="text-[9px] font-normal text-amber-300">10:30-11:15</span>
+                    <span class="block text-[8px] text-amber-400 font-bold">☕ Break 10:15-10:30</span>
+                  </th>
+                  <th class="p-2.5 text-center">Period 5<br><span class="text-[9px] font-normal text-slate-400">11:15-12:00</span></th>
+                  <th class="p-2.5 text-center">Period 6<br><span class="text-[9px] font-normal text-slate-400">12:00-12:45</span></th>
+                  <th class="p-2.5 text-center">Period 7<br><span class="text-[9px] font-normal text-slate-400">12:45-01:30</span></th>
+                </tr>
+              </thead>
+              <tbody id="personalScheduleGridBody" class="divide-y divide-slate-200 text-xs">
+                <!-- Dynamically populated via app.js -->
+              </tbody>
+            </table>
+          </div>
 
-          </tbody>
+          <!-- PROMINENT SAVE BUTTON -->
+          <div class="flex justify-end pt-2">
+            <button onclick="savePersonalSchedule()" class="px-6 py-3 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg shadow-green-600/25 flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>💾 Save & Sync My Timetable</span>
+            </button>
+          </div>
+        </div>
 
-        </table>
+      </div>
+
+      <!-- 2. MASTER TIMETABLE UPLOAD & EDIT SECTION (Admin Only) -->
+      <div id="masterTimetableUploadSection" class="hidden space-y-4">
+        <div class="card-colorful p-5 space-y-4 border-2 border-amber-300 bg-amber-50/30">
+          <div class="flex items-center justify-between gap-2 pb-3 border-b border-amber-200">
+            <div>
+              <h3 class="text-sm sm:text-base font-black text-amber-950 flex items-center gap-2">
+                <i data-lucide="lock" class="w-4 h-4 text-amber-600"></i>
+                Edit & Update Semester Master Timetables (Admin Only)
+              </h3>
+              <p class="text-xs text-amber-900">
+                Authorized Admin can add individual period slots or synchronize master schedules for any CSE semester.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="openAddPeriodModal()" class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm transition">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>+ Add Period Slot</span>
+              </button>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-black bg-amber-200 text-amber-900 border border-amber-300">
+                Admin Exclusive
+              </span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Target CSE Semester</label>
+              <select id="adminUploadTargetSemester" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800">
+                <option value="1">CSE 1st Year</option>
+                <option value="2">CSE 3rd Sem</option>
+                <option value="3">CSE 4th Sem</option>
+                <option value="4" selected>CSE 5th Sem</option>
+                <option value="5">CSE 6th Sem</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Master Timetable File (JSON / CSV)</label>
+              <input type="file" id="masterTimetableFileInput" accept=".json,.csv" class="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs" />
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button onclick="submitAdminMasterUpload()" class="px-5 py-2.5 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-600 text-white shadow-md flex items-center gap-2 transition">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              <span>Synchronize Master Timetable</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================= TAB 4: HELP & USER GUIDE ================= -->
+    <section id="helpTab" class="tab-pane hidden space-y-6">
+      
+      <!-- Top Overview Banner -->
+      <div class="card-colorful p-6 bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white space-y-3 shadow-xl">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xl shadow-lg">
+            📖
+          </div>
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black tracking-tight text-white">
+              F.A.S.T — Faculty Alternative Substitute Tracker Guide
+            </h2>
+            <p class="text-xs sm:text-sm text-indigo-200 font-medium">
+              Automated 7-Period background timetable comparison and instant substitute finder for CSE Department.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 Key Columns -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        
+        <!-- Column 1: For Faculty Members -->
+        <div class="card-colorful p-5 space-y-4 border-t-4 border-indigo-500">
+          <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-sm">
+              👨‍🏫
+            </div>
+            <h3 class="text-sm font-black text-slate-900">Faculty Quick Guide</h3>
+          </div>
+
+          <div class="space-y-3 text-xs text-slate-700">
+            <div class="flex gap-2.5">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-[10px] flex-shrink-0 mt-0.5">1</span>
+              <div>
+                <strong class="text-slate-900 font-black">Sign in:</strong>
+                <p class="text-slate-500 mt-0.5">Enter your Faculty ID or Name with your password. Each faculty member sees only their personal timetable.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-2.5">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-[10px] flex-shrink-0 mt-0.5">2</span>
+              <div>
+                <strong class="text-slate-900 font-black">Select Semester & Period:</strong>
+                <p class="text-slate-500 mt-0.5">Tap on any semester (1st Year to 6th Sem) and click the Period 1 to 7 slot you need to substitute.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-2.5">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-[10px] flex-shrink-0 mt-0.5">3</span>
+              <div>
+                <strong class="text-slate-900 font-black">Contact Available Teachers:</strong>
+                <p class="text-slate-500 mt-0.5">Free teachers appear below with <strong class="text-indigo-700">1-Click Call</strong> and <strong class="text-emerald-700">WhatsApp</strong>.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-2.5">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-[10px] flex-shrink-0 mt-0.5">4</span>
+              <div>
+                <strong class="text-slate-900 font-black">Update & Edit Your Timetable:</strong>
+                <p class="text-slate-500 mt-0.5">In <em>Update & Edit</em>, upload a photo/PDF, auto-populate from the master timetable, or click any slot to edit and save.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 2: For Admin -->
+        <div class="card-colorful p-5 space-y-4 border-t-4 border-amber-500">
+          <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black text-sm">
+              👑
+            </div>
+            <h3 class="text-sm font-black text-slate-900">Admin Mode & Policy</h3>
+          </div>
+
+          <div class="space-y-3 text-xs text-slate-700">
+            <div class="flex gap-2.5">
+              <span class="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-[10px] flex-shrink-0 mt-0.5">1</span>
+              <div>
+                <strong class="text-slate-900 font-black">Single Admin Lock:</strong>
+                <p class="text-slate-500 mt-0.5">Only ONE Admin is allowed institutional-wide. Enter your personal email to receive the 6-digit verification code.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-2.5">
+              <span class="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-[10px] flex-shrink-0 mt-0.5">2</span>
+              <div>
+                <strong class="text-slate-900 font-black">Master Timetable Authority:</strong>
+                <p class="text-slate-500 mt-0.5">Admins can add/delete period slots in <em>Update & Edit</em> → <em>👑 Semester Master Timetable</em>.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-2.5">
+              <span class="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-[10px] flex-shrink-0 mt-0.5">3</span>
+              <div>
+                <strong class="text-slate-900 font-black">Manage Exam Schedules:</strong>
+                <p class="text-slate-500 mt-0.5">In <em>Exam Invigilation</em>, upload photos/PDFs of duty notices and delete past finished exams with 1-click.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 3: Status Badges Legend -->
+        <div class="card-colorful p-5 space-y-4 border-t-4 border-emerald-500">
+          <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-sm">
+              💡
+            </div>
+            <h3 class="text-sm font-black text-slate-900">Status Badges Legend</h3>
+          </div>
+
+          <div class="space-y-3 text-xs">
+            <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-bold">
+              <div class="flex items-center gap-1.5 font-black">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span>🟢 Completely Free</span>
+              </div>
+              <p class="text-[11px] text-emerald-800 font-medium mt-0.5">
+                No teaching class, no exam duty, and not substituting elsewhere.
+              </p>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 font-bold">
+              <div class="flex items-center gap-1.5 font-black text-amber-900">
+                <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-600"></i>
+                <span>⚠️ In Exam Invigilation</span>
+              </div>
+              <p class="text-[11px] text-amber-800 font-medium mt-0.5">
+                Teacher is assigned to an exam hall. Displayed in candidate list for optional selection.
+              </p>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-purple-50 border border-purple-300 text-purple-950 font-bold">
+              <div class="flex items-center gap-1.5 font-black">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                <span>🔄 Background Comparison</span>
+              </div>
+              <p class="text-[11px] text-purple-800 font-medium mt-0.5">
+                Real-time check against Master Timetable, Personal synced schedule, and Exam roster.
+              </p>
+            </div>
+          </div>
+        </div>
 
       </div>
 
@@ -660,8 +882,191 @@
 
   </main>
 
+  </div> <!-- ================= END AUTHENTICATED APP CONTAINER ================= -->
 
+  <!-- ================= MODAL: SINGLE HOD ADMIN PERSONAL EMAIL VERIFICATION ================= -->
+  <div id="adminElevationModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4 border border-indigo-100">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md">
+            <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900 leading-tight">HOD Admin Verification</h3>
+            <p class="text-[11px] text-slate-500 font-medium">Single-Admin Personal Email Verification</p>
+          </div>
+        </div>
+        <button onclick="closeModal('adminElevationModal')" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Step 1: Request Verification Code via Personal Email -->
+      <div id="hodOtpStep1" class="space-y-4">
+        <div class="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 leading-relaxed">
+          <p class="font-bold flex items-center gap-1 mb-1 text-amber-900">
+            <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600"></i>
+            <span>Single Admin Policy</span>
+          </p>
+          <p class="text-slate-700">
+            Only <strong>ONE Admin</strong> is permitted institutional-wide. Enter your <strong>personal email address</strong> to receive your 6-digit security code. Once active, no other user can gain admin access until you log out.
+          </p>
+        </div>
+
+        <div id="hodOtpErrorStep1" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-bold"></div>
+
+        <div>
+          <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="mail" class="w-3.5 h-3.5 text-amber-500"></i>
+            HOD Personal Email Address
+          </label>
+          <input type="email" id="hodVerificationEmail" required placeholder="Enter your personal email (e.g. yourname@gmail.com)" 
+                 class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20 transition" />
+          <p class="text-[11px] text-slate-500 mt-1">A one-time 6-digit security code will be dispatched immediately.</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal('adminElevationModal')" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+          <button type="button" id="btnSendHodOtp" onclick="sendHodVerificationCode()" 
+                  class="px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white shadow-md shadow-orange-500/20 flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span id="btnSendHodOtpText">Send Verification Code</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Enter and Verify 6-Digit OTP -->
+      <div id="hodOtpStep2" class="hidden space-y-4">
+        
+        <div class="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-xs text-emerald-950 font-medium space-y-1">
+          <div class="flex items-center gap-1.5 font-black text-emerald-900">
+            <i data-lucide="mail-check" class="w-4 h-4 text-emerald-600"></i>
+            <span>Verification Code Sent!</span>
+          </div>
+          <p class="text-[11px] text-emerald-800">
+            Check your personal inbox at <span id="hodOtpSentEmailDisplay" class="font-extrabold underline text-emerald-950"></span>
+          </p>
+        </div>
+
+        <div id="hodOtpErrorStep2" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-bold"></div>
+
+        <div>
+          <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2 text-center">
+            Enter 6-Digit Verification Code
+          </label>
+          <div class="flex justify-center">
+            <input type="text" id="hodOtpCodeInput" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="• • • • • •" 
+                   class="w-56 text-center text-2xl tracking-[0.4em] font-black bg-slate-50 border-2 border-indigo-200 rounded-2xl py-3 px-4 text-indigo-950 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-400/30 transition shadow-inner font-mono" />
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-slate-500 mt-2.5 px-2">
+            <span id="hodOtpCountdown" class="font-bold text-amber-700 flex items-center gap-1">
+              <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+              <span>Expires in: 05:00</span>
+            </span>
+            <button type="button" onclick="sendHodVerificationCode()" class="text-indigo-600 hover:text-indigo-800 font-bold hover:underline flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+              <span>Resend Code</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="goToHodStep1()" class="text-xs font-bold text-slate-600 hover:text-indigo-600 flex items-center gap-1">
+            ← Change Email
+          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeModal('adminElevationModal')" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+            <button type="button" id="btnVerifyHodOtp" onclick="verifyHodCodeAndActivate()" 
+                    class="px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md shadow-emerald-500/20 flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span id="btnVerifyHodOtpText">Verify & Activate Admin</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ADD PERIOD (ADMIN ONLY - PERIODS 1 TO 7) ================= -->
+  <div id="addPeriodModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i data-lucide="calendar-plus" class="w-5 h-5 text-indigo-600"></i>
+          Add Timetable Period Slot (Admin)
+        </h3>
+        <button onclick="closeModal('addPeriodModal')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="addPeriodForm" onsubmit="submitAddPeriod(event)" class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Day</label>
+            <select id="newPeriodDay" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs">
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Period (1 to 7)</label>
+            <select id="newPeriodNumber" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs">
+              <option value="1">Period 1 (08:00 - 08:45)</option>
+              <option value="2">Period 2 (08:45 - 09:30)</option>
+              <option value="3">Period 3 (09:30 - 10:15)</option>
+              <option value="4">Period 4 (10:30 - 11:15 - Post Break)</option>
+              <option value="5">Period 5 (11:15 - 12:00)</option>
+              <option value="6">Period 6 (12:00 - 12:45)</option>
+              <option value="7">Period 7 (12:45 - 01:30)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Subject</label>
+          <select id="newPeriodSubject" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Faculty Member</label>
+          <select id="newPeriodFaculty" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Room / Lab</label>
+          <input type="text" id="newPeriodRoom" required placeholder="e.g. LH-101 or Lab-2" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs" />
+        </div>
+
+        <div class="flex justify-end gap-2.5 pt-2">
+          <button type="button" onclick="closeModal('addPeriodModal')" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-md">Save Period</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastNotification" class="fixed bottom-5 right-5 z-50 hidden transition-all duration-300">
+    <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-black flex items-center gap-2.5 border border-indigo-500">
+      <span id="toastIcon" class="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center text-[10px]">✓</span>
+      <span id="toastMessage">Action completed successfully!</span>
+    </div>
+  </div>
+
+  <!-- Scripts -->
   <script src="js/app.js"></script>
-
 </body>
 </html>

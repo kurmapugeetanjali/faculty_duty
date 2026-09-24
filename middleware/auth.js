@@ -6,10 +6,10 @@ function requireAuth(req, res, next) {
 }
 
 function requireHOS(req, res, next) {
-    if (req.session && req.session.userId && req.session.role === 'hos') {
+    if (req.session && req.session.userId && (req.session.role === 'hos' || req.session.isAdminElevated)) {
         return next();
     }
-    return res.status(403).json({ error: 'Forbidden: HOS access required' });
+    return res.status(403).json({ error: 'Forbidden: Admin / HOD access required' });
 }
 
 function requireFaculty(req, res, next) {

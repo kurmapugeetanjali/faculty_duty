@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: fast-faculty-duty
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PORT
+        value: 3000

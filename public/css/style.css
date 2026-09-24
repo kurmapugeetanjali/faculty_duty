@@ -1,0 +1,360 @@
+/* F.A.S.T - Faculty Alternative Substitute Tracker
+   Clean, Elegant, Well-Defined & Attractive Academic Theme */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap');
+
+:root {
+  --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --brand-indigo: #4f46e5;
+  --brand-border: #818cf8;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.06) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: #0f172a;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ================= MODERN HEADER & NAVIGATION ================= */
+.colorful-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%);
+  color: #ffffff;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.25);
+}
+
+.nav-tab-colorful-active {
+  background: #4f46e5;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  transform: translateY(-1px);
+}
+
+.nav-tab-colorful-inactive {
+  color: #475569;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+}
+
+.nav-tab-colorful-inactive:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #94a3b8;
+}
+
+/* Semester Filter Buttons */
+.semester-pill {
+  transition: all 0.15s ease-in-out;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+}
+
+.semester-pill.active {
+  background: #4f46e5;
+  color: #ffffff !important;
+  border-color: #3730a3 !important;
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.3);
+  transform: translateY(-1px);
+}
+
+.semester-pill:not(.active):hover {
+  border-color: #818cf8;
+  color: #4f46e5;
+  background: #eef2ff;
+}
+
+/* Clean Dashboard Cards */
+.card-colorful {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 1rem;
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease-in-out;
+}
+
+.card-colorful:hover {
+  box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.12);
+}
+
+/* ================= PLEASURE-COLOR BORDERLESS TIMETABLE GRID ================= */
+
+/* Main Outer Timetable Container - Borderless Soft Card */
+.timetable-outer-container {
+  border: none !important;
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  padding: 0.25rem;
+}
+
+/* Table Header Row - Borderless */
+.timetable-header-row {
+  border: none !important;
+  background: transparent !important;
+}
+
+.timetable-header-row th {
+  padding: 0.6rem 0.35rem;
+  font-weight: 800;
+  border: none !important;
+}
+
+/* Pleasure Period Header Badges */
+.period-header-pill {
+  border-radius: 0.85rem;
+  padding: 0.5rem 0.4rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.period-header-pill.theme-sky {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.period-header-pill.theme-indigo {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.period-header-pill.theme-break {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.period-header-pill.theme-purple {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+/* Day Row Header - Borderless Pleasure Day Cards */
+.day-header-cell {
+  background: transparent !important;
+  border: none !important;
+  padding: 0.4rem 0.35rem !important;
+  vertical-align: middle;
+  width: 96px;
+}
+
+.day-pleasure-box {
+  border-radius: 1rem;
+  padding: 0.75rem 0.4rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease;
+}
+
+.day-pleasure-box:hover {
+  transform: translateY(-1px);
+}
+
+/* 6 Distinct Pleasure Day Colors */
+.day-card-mon {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  color: #5b21b6;
+}
+.day-card-tue {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0369a1;
+}
+.day-card-wed {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #15803d;
+}
+.day-card-thu {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+.day-card-fri {
+  background: linear-gradient(135deg, #ffe4e6 0%, #fecdd3 100%);
+  color: #9f1239;
+}
+.day-card-sat {
+  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%);
+  color: #0f766e;
+}
+
+/* Timetable Data Cells - Borderless */
+.timetable-cell {
+  border: none !important;
+  padding: 0.35rem;
+  background: transparent;
+}
+
+/* Period Slots Base - Borderless Floating Cards */
+.period-slot {
+  position: relative;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  border-radius: 1rem;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.period-slot:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -2px rgba(0, 0, 0, 0.12);
+  filter: brightness(0.97);
+}
+
+.period-slot.selected {
+  box-shadow: 0 0 0 3px #6366f1, 0 8px 24px -2px rgba(99, 102, 241, 0.35) !important;
+  transform: translateY(-2px) scale(1.02);
+  z-index: 10;
+}
+
+/* ================= BORDERLESS PLEASURE-COLOR SUBJECT THEMES ================= */
+
+/* 1. Indigo (Theory & Core CSE) */
+.subject-theme-indigo {
+  background: #eef2ff !important;
+  color: #1e1b4b !important;
+}
+.subject-theme-indigo .badge-pill {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+/* 2. Blue / Sky (Programming & Web) */
+.subject-theme-blue {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+}
+.subject-theme-blue .badge-pill {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+/* 3. Emerald (Networks, Cloud & Systems) */
+.subject-theme-green {
+  background: #dcfce7 !important;
+  color: #14532d !important;
+}
+.subject-theme-green .badge-pill {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+/* 4. Purple (AI, Data Structures & DBMS) */
+.subject-theme-purple {
+  background: #f3e8ff !important;
+  color: #581c87 !important;
+}
+.subject-theme-purple .badge-pill {
+  background: #9333ea;
+  color: #ffffff;
+}
+
+/* 5. Amber / Sunshine (Labs & Hardware) */
+.subject-theme-orange {
+  background: #fef3c7 !important;
+  color: #78350f !important;
+}
+.subject-theme-orange .badge-pill {
+  background: #d97706;
+  color: #ffffff;
+}
+
+/* 6. Rose (Projects & Viva) */
+.subject-theme-rose {
+  background: #ffe4e6 !important;
+  color: #881337 !important;
+}
+.subject-theme-rose .badge-pill {
+  background: #e11d48;
+  color: #ffffff;
+}
+
+/* 7. Cyan / Seafoam (App Development & Electives) */
+.subject-theme-cyan {
+  background: #ccfbf1 !important;
+  color: #134e4a !important;
+}
+.subject-theme-cyan .badge-pill {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+/* 8. Free Slot - Soft Cloud Pearl */
+.subject-theme-free {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  border: none !important;
+}
+.subject-theme-free:hover {
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+/* ================= FACULTY CANDIDATE CARDS ================= */
+.faculty-candidate-card {
+  border-radius: 1rem;
+  border: 1.5px solid #c7d2fe;
+  background: #ffffff;
+  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.faculty-candidate-card:hover {
+  border-color: #6366f1;
+  box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.2);
+  transform: translateY(-2px);
+}
+
+.faculty-candidate-card.exam-duty-card {
+  border-color: #fcd34d;
+  background: #fffdf5;
+  box-shadow: 0 4px 12px -2px rgba(245, 158, 11, 0.1);
+}
+
+.faculty-candidate-card.exam-duty-card:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.22);
+}
+
+/* Prominent Contact Box */
+.candidate-contact-box {
+  background: #f1f5fd;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Modal Blur */
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(6px);
+}
+
+.font-code {
+  font-family: var(--font-mono);
+}
+
+/* ================= MOBILE PHONE RESPONSIVENESS ================= */
+@media (max-width: 768px) {
+  .mobile-timetable-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .period-slot {
+    min-width: 135px;
+    padding: 0.5rem;
+  }
+
+  .nav-tab {
+    white-space: nowrap;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
+  }
+}
