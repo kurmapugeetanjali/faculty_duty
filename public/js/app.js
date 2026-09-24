@@ -703,6 +703,9 @@ async function selectSemester(branchId, btnElement) {
         headerTitle.innerText = `Main Weekly Timetable - ${branch.branch_name}`;
     }
 
+    // Reload meta options strictly for this branch and semester (e.g. CM-501 to CM-506 for 5th Sem)
+    await loadMetaOptions(branchId, currentDepartment);
+
     // Reset substitute results
     selectedSlot = null;
     resetSubstitutePanel();
@@ -728,10 +731,12 @@ function resetSubstitutePanel() {
     if (countBadge) countBadge.innerText = 'Select any slot';
 }
 
-// ================= META OPTIONS =================
-async function loadMetaOptions() {
+// ================= META OPTIONS (STRICTLY SEMESTER SCOPED) =================
+async function loadMetaOptions(branchId = null, dept = null) {
+    const targetDept = dept || currentDepartment || 'CSE';
+    const targetBranchId = branchId || currentBranchId || 4;
     try {
-        const res = await fetch(`/api/timetable/meta/options?department=${currentDepartment}`);
+        const res = await fetch(`/api/timetable/meta/options?department=${encodeURIComponent(targetDept)}&branch_id=${targetBranchId}`);
         if (res.ok) {
             metaOptions = await res.json();
             populateMetaDropdowns();
@@ -873,8 +878,14 @@ function generatePeriodCellHTML(day, period, entry, hasUploadedClasses = true) {
         
         // Exact clean subject shortcuts matching uploaded timetable
         let displaySubject = entry.subject_name;
+        let isLab3Period = false;
+
         if (entry.subject_code === 'CM-501' || entry.subject_code === 'CS-501') displaySubject = 'IM&ED';
-        else if (entry.subject_code === 'CM-502' || entry.subject_code === 'CS-502') displaySubject = (entry.room && entry.room.toLowerCase().includes('lab')) ? 'WT LAB' : 'WT';
+        else if (entry.subject_code === 'CM-502' || entry.subject_code === 'CS-502') {
+            const isLab = (entry.room && entry.room.toLowerCase().includes('lab')) || (day === 'Wednesday' && (period === 4 || period === 5 || period === 6));
+            displaySubject = isLab ? 'WT LAB' : 'WT';
+            if (isLab) isLab3Period = true;
+        }
         else if (entry.subject_code === 'CM-503' || entry.subject_code === 'CS-503') displaySubject = 'BD & CC';
         else if (entry.subject_code === 'CM-504' || entry.subject_code === 'CS-504') {
             if (period === 2 && (day === 'Tuesday' || day === 'Thursday' || day === 'Friday' || day === 'Saturday')) displaySubject = 'IOT';
@@ -886,7 +897,10 @@ function generatePeriodCellHTML(day, period, entry, hasUploadedClasses = true) {
             else if (period === 6 && day === 'Friday') displaySubject = 'ANDROID PROG';
             else displaySubject = 'PYTHON PROG';
         }
-        else if (entry.subject_code === 'CM-505' || entry.subject_code === 'CS-505') displaySubject = 'PYTHON PROG LAB';
+        else if (entry.subject_code === 'CM-505' || entry.subject_code === 'CS-505') {
+            displaySubject = 'PYTHON PROG LAB';
+            isLab3Period = true;
+        }
         else if (entry.subject_code === 'CM-506' || entry.subject_code === 'CS-506') displaySubject = 'PROJECT WORK';
 
         return `
@@ -906,6 +920,12 @@ function generatePeriodCellHTML(day, period, entry, hasUploadedClasses = true) {
                         <i data-lucide="user" class="w-3 h-3 text-indigo-600 flex-shrink-0"></i>
                         <span>${entry.faculty_name}</span>
                     </div>
+
+                    ${isLab3Period ? `
+                        <div class="mt-1 text-[9px] font-black uppercase tracking-wider text-purple-800 bg-purple-100/90 border border-purple-200 px-1.5 py-0.5 rounded w-fit flex items-center gap-1">
+                            <span>🧪 3-Slot Lab</span>
+                        </div>
+                    ` : ''}
 
                     ${(isAdminMode && hodEditMode) ? `
                         <div class="mt-2 pt-1 border-t border-black/5 flex justify-end gap-1">
@@ -974,16 +994,20 @@ async function selectPeriodSlot(day, period, entryId) {
     await queryAvailableSubstitutes(day, period, entry);
 }
 
-function renderFacultyCards(facultyList, day, period, entry) {
+function renderFacultyCards(facultyList, day, period, entry, extraData = {}) {
     const facultyListDiv = document.getElementById('availableFacultyList');
     const emptyState = document.getElementById('noFacultyAvailableState');
     const countBadge = document.getElementById('availableFacultyCount');
+
+    const isLab = extraData && extraData.is_lab_block;
+    const labPeriods = (extraData && extraData.lab_block_periods) || [period];
 
     const freeCount = facultyList.filter(f => f.availability_status === 'available').length;
     const examDutyCount = facultyList.filter(f => f.availability_status === 'invigilation_busy').length;
     
     if (countBadge) {
-        countBadge.innerText = `${freeCount} Completely Free • ${examDutyCount} in Exam Invigilation`;
+        const labNote = isLab ? ` (Free across Periods ${labPeriods.join(', ')})` : '';
+        countBadge.innerText = `${freeCount} Completely Free${labNote} • ${examDutyCount} in Exam Invigilation`;
     }
 
     if (facultyList.length === 0) {
@@ -998,10 +1022,11 @@ function renderFacultyCards(facultyList, day, period, entry) {
     facultyListDiv.innerHTML = facultyList.map(fac => {
         const cleanPhone = (fac.phone || '').replace(/[^0-9]/g, '');
         const whatsappMsg = encodeURIComponent(
-            `Hello Prof. ${fac.full_name}, this is ${currentUser ? currentUser.full_name : 'Faculty'}. Can you please substitute for my CSE class on ${day} Period ${period} (${entry ? entry.subject_name : 'Diploma Class'})? Thank you!`
+            `Hello Prof. ${fac.full_name}, this is ${currentUser ? currentUser.full_name : 'Faculty'}. Can you please substitute for my CSE class on ${day} Period ${period}${isLab ? ` (3-Period Lab Session: Periods ${labPeriods.join(', ')})` : ''} (${entry ? entry.subject_name : 'Diploma Class'})? Thank you!`
         );
         const whatsappUrl = `https://wa.me/${cleanPhone}?text=${whatsappMsg}`;
         const isExamBusy = fac.availability_status === 'invigilation_busy';
+        const isLabPartial = fac.availability_status === 'lab_partial_busy';
 
         return `
             <div class="faculty-candidate-card ${isExamBusy ? 'exam-duty-card' : ''} p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
@@ -1017,7 +1042,7 @@ function renderFacultyCards(facultyList, day, period, entry) {
                                 ${fac.full_name}
                             </h4>
                             <p class="text-[11px] text-slate-600 font-semibold mt-0.5">
-                                ${fac.designation || 'Lecturer'} • CSE Department
+                                ${fac.designation || 'Lecturer in CSE'} • CSE Department
                             </p>
                         </div>
                     </div>
@@ -1043,7 +1068,7 @@ function renderFacultyCards(facultyList, day, period, entry) {
                         </div>
                     </div>
 
-                    <!-- STATUS BADGE: Completely Free vs In Exam Invigilation Warning -->
+                    <!-- STATUS BADGE: Free vs In Exam Invigilation vs Lab Block Status -->
                     ${isExamBusy ? `
                         <div class="p-2.5 rounded-xl bg-amber-100 border-2 border-amber-400 text-xs text-amber-950 font-semibold space-y-1 mt-2">
                             <div class="flex items-center gap-1.5 font-black text-amber-900">
@@ -1057,10 +1082,20 @@ function renderFacultyCards(facultyList, day, period, entry) {
                                 (Assigned to exam duty. You can still contact this faculty member if they agree to substitute)
                             </div>
                         </div>
+                    ` : isLabPartial ? `
+                        <div class="p-2.5 rounded-xl bg-amber-50 border-2 border-amber-300 text-xs text-amber-950 font-semibold space-y-1 mt-2">
+                            <div class="flex items-center gap-1.5 font-black text-amber-900">
+                                <i data-lucide="clock" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+                                <span>${fac.status_badge}</span>
+                            </div>
+                            <div class="text-[10px] text-amber-800 pl-5">
+                                ${fac.note}
+                            </div>
+                        </div>
                     ` : `
                         <div class="p-2 rounded-xl bg-emerald-50 border-2 border-emerald-300 text-xs text-emerald-950 font-black flex items-center gap-2 mt-2">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span>🟢 Completely Free & Available for Substitution</span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
+                            <span>${isLab ? `🟢 Free for full 3-period Lab (Periods ${labPeriods.join(', ')})` : '🟢 Completely Free & Available'}</span>
                         </div>
                     `}
                 </div>
@@ -1085,15 +1120,29 @@ function renderFacultyCards(facultyList, day, period, entry) {
 
 async function queryAvailableSubstitutes(day, period, entry) {
     const dateInput = document.getElementById('substitutionDateInput');
-    const selectedDate = dateInput.value;
+    const selectedDate = dateInput ? dateInput.value : '';
     const originalFacultyId = entry ? entry.faculty_id : (currentUser ? currentUser.id : 0);
 
     try {
-        const res = await fetch(`/api/substitutions/available?date=${selectedDate}&day=${day}&period=${period}&original_faculty_id=${originalFacultyId}&department=${currentDepartment}`);
+        const res = await fetch(`/api/substitutions/available?date=${selectedDate}&day=${day}&period=${period}&original_faculty_id=${originalFacultyId}&department=${currentDepartment}&branch_id=${currentBranchId}`);
         if (!res.ok) throw new Error('Failed to fetch faculty list');
 
-        const facultyList = await res.json();
-        renderFacultyCards(facultyList, day, period, entry);
+        const data = await res.json();
+        const facultyList = Array.isArray(data) ? data : (data.faculty || []);
+
+        // If it's a 3-period continuous lab session, display the special badge
+        if (data && data.is_lab_block && data.lab_block_periods && data.lab_block_periods.length > 1) {
+            const subBadge = document.getElementById('subPanelPeriodBadge');
+            const subtitle = document.getElementById('subPanelSubtitle');
+            if (subBadge) {
+                subBadge.innerHTML = `<span class="bg-indigo-900 text-amber-300 px-2 py-0.5 rounded-md font-black">🧪 3-Period Lab Block (${day} Periods ${data.lab_block_periods.join(', ')})</span>`;
+            }
+            if (subtitle) {
+                subtitle.innerText = `Continuous Lab Session: ${entry ? entry.subject_name : (data.lab_subject_name || 'Lab Session')} • Checking substitute availability across Periods ${data.lab_block_periods.join(', ')} simultaneously.`;
+            }
+        }
+
+        renderFacultyCards(facultyList, day, period, entry, data);
     } catch (e) {
         console.error("Error querying substitutes:", e);
     }
