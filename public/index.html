@@ -12,10 +12,163 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="min-h-screen flex flex-col antialiased bg-slate-50 text-slate-900">
+<body class="min-h-screen flex flex-col antialiased bg-slate-950 text-slate-100">
 
-  <!-- ================= MAIN APP CONTAINER (ALWAYS VISIBLE & ACCESSIBLE) ================= -->
-  <div id="authenticatedAppContainer" class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+  <!-- ================= FULL SCREEN INSTITUTIONAL LOGIN PAGE ================= -->
+  <div id="loginScreenView" class="min-h-screen flex flex-col justify-center items-center p-4 sm:p-6 bg-gradient-to-br from-slate-950 via-indigo-950 to-purple-950 relative overflow-hidden">
+    
+    <!-- Decorative Glowing Background Orbs -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-pink-600/20 blur-3xl pointer-events-none"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-lg relative z-10 space-y-5">
+      
+      <!-- Brand Logo & Header -->
+      <div class="text-center space-y-1.5">
+        <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 via-pink-500 to-indigo-600 flex items-center justify-center text-white font-black shadow-2xl shadow-indigo-600/40 mx-auto transform hover:scale-105 transition">
+          <i data-lucide="sparkles" class="w-9 h-9 text-white"></i>
+        </div>
+        <div>
+          <span class="inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-1">
+            STATE POLYTECHNIC • MULTI-DEPARTMENT PORTAL
+          </span>
+          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+            F.A.S.T
+          </h1>
+          <p class="text-xs text-indigo-200 font-bold">
+            Faculty Alternative Substitute Tracker
+          </p>
+        </div>
+      </div>
+
+      <!-- Feature Highlight Badges -->
+      <div class="flex items-center justify-center gap-1.5 flex-wrap text-[11px] font-bold text-slate-300">
+        <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
+          🏢 5 Branches: CSE • MECH • EEE • ECE • CIVIL
+        </span>
+        <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
+          📚 All 25 Semesters
+        </span>
+        <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
+          🕒 08:00 AM - 01:30 PM
+        </span>
+      </div>
+
+      <!-- Login Card -->
+      <div class="bg-slate-900/90 backdrop-blur-xl rounded-3xl p-6 sm:p-7 border border-indigo-500/30 shadow-2xl space-y-4 text-left">
+        
+        <div class="border-b border-slate-800 pb-3">
+          <h2 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+            <i data-lucide="log-in" class="w-5 h-5 text-amber-400"></i>
+            <span>Institutional Faculty & HOD Login</span>
+          </h2>
+          <p class="text-xs text-indigo-200 mt-0.5 font-medium">
+            Enter your Name/ID, Password, and Phone Number to enter the website.
+          </p>
+        </div>
+
+        <!-- 1-Click Quick Demo Access Selector -->
+        <div class="space-y-1.5 bg-slate-950/60 p-3 rounded-2xl border border-indigo-500/20">
+          <label class="block text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1">
+            <i data-lucide="zap" class="w-3 h-3 text-amber-400"></i>
+            <span>1-Click Quick Access (Auto-fills Credentials):</span>
+          </label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-left">
+            <button type="button" onclick="quickFillLogin('HOD_CSE', 'Fast@2026', '+91 98480 11223')" class="p-2 rounded-xl bg-indigo-900/40 hover:bg-indigo-800/60 text-white border border-indigo-500/30 transition text-left cursor-pointer">
+              <div class="font-black text-[11px] text-amber-300">💻 HOD CSE</div>
+              <div class="text-[9px] text-indigo-200 truncate">Dr. K. Smitha</div>
+            </button>
+            <button type="button" onclick="quickFillLogin('HOD_MECH', 'Fast@2026', '+91 98486 77889')" class="p-2 rounded-xl bg-amber-900/40 hover:bg-amber-800/60 text-white border border-amber-500/30 transition text-left cursor-pointer">
+              <div class="font-black text-[11px] text-amber-300">⚙️ HOD MECH</div>
+              <div class="text-[9px] text-amber-200 truncate">Dr. Murali Krishna</div>
+            </button>
+            <button type="button" onclick="quickFillLogin('HOD_EEE', 'Fast@2026', '+91 98481 33445')" class="p-2 rounded-xl bg-sky-900/40 hover:bg-sky-800/60 text-white border border-sky-500/30 transition text-left cursor-pointer">
+              <div class="font-black text-[11px] text-amber-300">⚡ HOD EEE</div>
+              <div class="text-[9px] text-sky-200 truncate">Dr. B. Suresh</div>
+            </button>
+            <button type="button" onclick="quickFillLogin('HOD_ECE', 'Fast@2026', '+91 98486 88990')" class="p-2 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 text-white border border-purple-500/30 transition text-left cursor-pointer">
+              <div class="font-black text-[11px] text-amber-300">📡 HOD ECE</div>
+              <div class="text-[9px] text-purple-200 truncate">Dr. Venkat Rao</div>
+            </button>
+            <button type="button" onclick="quickFillLogin('HOD_CIVIL', 'Fast@2026', '+91 98481 44556')" class="p-2 rounded-xl bg-emerald-900/40 hover:bg-emerald-800/60 text-white border border-emerald-500/30 transition text-left cursor-pointer">
+              <div class="font-black text-[11px] text-amber-300">🏗️ HOD CIVIL</div>
+              <div class="text-[9px] text-emerald-200 truncate">Dr. Ramesh Babu</div>
+            </button>
+            <button type="button" onclick="quickFillLogin('FAC001', 'Fast@2026', '+91 98481 22334')" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition text-left cursor-pointer">
+              <div class="font-black text-[11px] text-amber-300">👨‍🏫 Faculty (CSE)</div>
+              <div class="text-[9px] text-slate-300 truncate">Dr. Ravi Kumar</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Login Form with Username, Password, Phone Number -->
+        <form id="portalLoginForm" onsubmit="submitManualLogin(event)" class="space-y-3.5">
+          <div id="loginErrorMessage" class="hidden p-3 rounded-xl bg-red-500/20 border border-red-500/40 text-xs font-bold text-red-200"></div>
+
+          <!-- 1. Username / Faculty ID -->
+          <div>
+            <label class="block text-xs font-black text-indigo-200 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <i data-lucide="user" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Faculty Name / Username</span>
+            </label>
+            <input type="text" id="manualFacultyIdInput" required placeholder="Enter Name or ID (e.g. Dr. K. Smitha, HOD_CSE, FAC001)" 
+                   class="w-full bg-slate-950 border border-indigo-400/40 rounded-xl p-2.5 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+          </div>
+
+          <!-- 2. Password -->
+          <div>
+            <label class="block text-xs font-black text-indigo-200 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="key" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span>Password</span>
+              </span>
+              <span class="text-[10px] text-indigo-300 font-normal">Demo: Fast@2026</span>
+            </label>
+            <div class="relative flex items-center">
+              <input type="password" id="manualPasswordInput" required placeholder="Enter password (e.g. Fast@2026)" 
+                     class="w-full bg-slate-950 border border-indigo-400/40 rounded-xl p-2.5 pr-10 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+              <button type="button" onclick="togglePasswordVisibility('manualPasswordInput', 'passwordToggleIcon')" class="absolute right-2.5 p-1 rounded-lg text-slate-400 hover:text-amber-300 transition" title="Show / Hide Password">
+                <i id="passwordToggleIcon" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Phone Number -->
+          <div>
+            <label class="block text-xs font-black text-indigo-200 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <i data-lucide="phone" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Faculty Phone Number</span>
+            </label>
+            <input type="tel" id="manualPhoneInput" required placeholder="Enter 10-digit Phone Number (e.g. +91 98480 11223)" 
+                   class="w-full bg-slate-950 border border-indigo-400/40 rounded-xl p-2.5 text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+          </div>
+
+          <!-- Submit Login Button -->
+          <button type="submit" id="btnLoginSubmit" class="w-full py-3 rounded-xl text-xs sm:text-sm font-black bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 hover:from-amber-500 hover:to-rose-600 text-slate-950 shadow-xl shadow-orange-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition flex items-center justify-center gap-2 cursor-pointer">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            <span>Login to Access F.A.S.T Portal</span>
+          </button>
+
+          <!-- Public Guest Browse Option -->
+          <button type="button" onclick="enterAsGuest()" class="w-full py-2 rounded-xl text-xs font-bold text-indigo-300 hover:text-white bg-slate-950/60 hover:bg-slate-950 border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>👁️ Or Browse Public Timetables as Guest</span>
+          </button>
+        </form>
+
+      </div>
+
+      <!-- Live Clock & Footer -->
+      <div class="text-center text-[11px] text-indigo-300/80 font-medium">
+        <span id="loginGateClockDisplay"></span> • State Polytechnic / Engineering College
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= MAIN AUTHENTICATED APP CONTAINER ================= -->
+  <div id="authenticatedAppContainer" class="hidden min-h-screen flex flex-col bg-slate-50 text-slate-900">
 
     <!-- ================= TOP NOTIFICATION BANNER ================= -->
     <div class="bg-slate-950 text-slate-300 text-[11px] py-1.5 px-4 text-center border-b border-slate-800 font-medium tracking-wide flex items-center justify-between">
@@ -60,24 +213,29 @@
       </div>
 
       <!-- SEPARATE DEDICATED ADMIN ACTIVATION BUTTON -->
-      <button id="headerAdminToggleBtn" onclick="openAdminVerificationModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/30 shadow-xs transition">
+      <button id="headerAdminToggleBtn" onclick="openAdminVerificationModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/30 shadow-xs transition cursor-pointer">
         <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-400"></i>
         <span id="adminButtonText">🛡️ HOD Admin Access</span>
       </button>
 
-      <!-- Institutional Faculty / HOD Login Button (Shown when not logged in) -->
-      <button id="headerLoginBtn" onclick="openLoginModal()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-500 hover:to-orange-500 text-slate-950 shadow-md shadow-amber-500/20 transition transform hover:scale-105 active:scale-95">
+      <!-- Switch Account / Login Button (Shown in Header) -->
+      <button id="headerLoginBtn" onclick="showLoginScreen()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-500 hover:to-orange-500 text-slate-950 shadow-md shadow-amber-500/20 transition transform hover:scale-105 active:scale-95 cursor-pointer">
         <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
-        <span>🔑 Faculty / HOD Login</span>
+        <span>🔑 Login</span>
       </button>
 
       <!-- Logged-in Faculty Profile Pill (Shown when logged in) -->
       <div id="userProfileBadge" class="hidden items-center gap-2 bg-slate-900 border border-slate-700 text-white px-3 py-1 rounded-xl text-xs font-semibold shadow-xs">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span id="userNameDisplay" class="font-black max-w-[120px] sm:max-w-none truncate">Dr. Ravi Kumar</span>
-        <span id="userRoleBadge" class="px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">FACULTY</span>
+        <div class="flex flex-col text-left">
+          <div class="flex items-center gap-1">
+            <span id="userNameDisplay" class="font-black max-w-[140px] truncate">Dr. Ravi Kumar</span>
+            <span id="userRoleBadge" class="px-1.5 py-0.2 rounded text-[9px] uppercase font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">FACULTY</span>
+          </div>
+          <span id="userPhoneDisplay" class="text-[10px] text-amber-300 font-mono">📱 +91 98481 22334</span>
+        </div>
         
-        <button onclick="logout()" class="text-slate-400 hover:text-red-400 ml-1 p-1 hover:bg-slate-800 rounded-md transition" title="Logout">
+        <button onclick="logout()" class="text-slate-400 hover:text-red-400 ml-1 p-1 hover:bg-slate-800 rounded-md transition cursor-pointer" title="Logout">
           <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
         </button>
       </div>

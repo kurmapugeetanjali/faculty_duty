@@ -55,6 +55,8 @@ body {
   background: #ffffff;
   color: #334155;
   font-weight: 800;
+  cursor: pointer;
+  user-select: none;
 }
 
 .branch-pill.active {
@@ -69,6 +71,7 @@ body {
   border-color: #818cf8;
   color: #4f46e5;
   background: #eef2ff;
+  transform: translateY(-0.5px);
 }
 
 /* Semester Filter Buttons */
@@ -77,13 +80,16 @@ body {
   border: 1.5px solid #cbd5e1;
   background: #ffffff;
   color: #475569;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
 }
 
 .semester-pill.active {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: #ffffff !important;
   border-color: #3730a3 !important;
-  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 3px 12px rgba(79, 70, 229, 0.35);
   transform: translateY(-1px);
 }
 
@@ -91,6 +97,7 @@ body {
   border-color: #818cf8;
   color: #4f46e5;
   background: #eef2ff;
+  transform: translateY(-0.5px);
 }
 
 /* Clean Dashboard Cards */

@@ -123,7 +123,7 @@ async function sendVerificationEmail(targetEmail, code, userName) {
 // 1. LOGIN & REGISTRATION API (With Multi-Department Support)
 // =========================================================================
 router.post('/login', async (req, res) => {
-    const { faculty_id, password } = req.body;
+    const { faculty_id, password, phone } = req.body;
     
     if (!faculty_id || !password) {
         return res.status(400).json({ error: 'Faculty Name/ID and password are required.' });
@@ -163,18 +163,20 @@ router.post('/login', async (req, res) => {
             const newFacultyId = `FAC${String(newIndex).padStart(3, '0')}`;
             const hashed = bcrypt.hashSync(password, 10);
             const email = `${cleanName.toLowerCase().replace(/\s+/g, '')}@polytechnic.edu`;
+            const facultyPhone = (phone || '9876543210').trim();
 
             const insertRes = await pool.query(`
                 INSERT INTO users (faculty_id, full_name, email, phone, department, designation, password_hash, role)
-                VALUES ($1, $2, $3, '9876543210', 'CSE', 'Faculty', $4, 'faculty')
+                VALUES ($1, $2, $3, $4, 'CSE', 'Faculty', $5, 'faculty')
                 RETURNING *
-            `, [newFacultyId, newFullName, email, hashed]);
+            `, [newFacultyId, newFullName, email, facultyPhone, hashed]);
 
             const newUser = insertRes.rows[0];
             req.session.userId = newUser.id;
             req.session.faculty_id = newUser.faculty_id;
             req.session.role = newUser.role;
             req.session.full_name = newUser.full_name;
+            req.session.phone = newUser.phone;
             req.session.designation = newUser.designation;
             req.session.department = newUser.department;
             req.session.isHOD = false;
@@ -187,6 +189,7 @@ router.post('/login', async (req, res) => {
                     id: newUser.id,
                     faculty_id: newUser.faculty_id,
                     full_name: newUser.full_name,
+                    phone: newUser.phone,
                     role: newUser.role,
                     designation: newUser.designation,
                     department: newUser.department,
@@ -207,6 +210,16 @@ router.post('/login', async (req, res) => {
         if (passwordMatches || password === 'Fast@2026' || password === 'password123' || password === 'admin123' || password === 'Pass@1') {
             const isHOD = user.role === 'hos' || user.faculty_id.startsWith('HOD_');
 
+            // If phone was provided and different, update it
+            if (phone && phone.trim().length >= 8 && phone !== user.phone) {
+                try {
+                    await pool.query('UPDATE users SET phone = $1 WHERE id = $2', [phone.trim(), user.id]);
+                    user.phone = phone.trim();
+                } catch (pe) {
+                    console.warn("Could not update user phone:", pe.message);
+                }
+            }
+
             // Check single active admin lock if user has HOD role
             let isAdminElevated = false;
             if (isHOD) {
@@ -223,6 +236,7 @@ router.post('/login', async (req, res) => {
             req.session.faculty_id = user.faculty_id;
             req.session.role = isAdminElevated ? 'hos' : 'faculty';
             req.session.full_name = user.full_name;
+            req.session.phone = user.phone;
             req.session.designation = user.designation;
             req.session.department = user.department;
             req.session.isHOD = isHOD;
@@ -237,6 +251,7 @@ router.post('/login', async (req, res) => {
                     id: user.id,
                     faculty_id: user.faculty_id,
                     full_name: user.full_name,
+                    phone: user.phone,
                     role: req.session.role,
                     designation: user.designation,
                     department: user.department,

@@ -93,30 +93,54 @@ function togglePasswordVisibility(inputId, iconId) {
     if (window.lucide) lucide.createIcons();
 }
 
-// Quick helper to fill login credentials by Name or ID
-function quickFillLogin(nameOrId) {
+// Quick helper to fill login credentials by Name, Password, and Phone Number
+function quickFillLogin(nameOrId, password = 'Fast@2026', phone = '+91 98480 11223') {
     const input = document.getElementById('manualFacultyIdInput');
     const pass = document.getElementById('manualPasswordInput');
+    const phoneInput = document.getElementById('manualPhoneInput');
     if (input) input.value = nameOrId;
-    if (pass) pass.value = 'Fast@2026';
+    if (pass) pass.value = password;
+    if (phoneInput) phoneInput.value = phone;
+}
+
+function showLoginScreen() {
+    const loginView = document.getElementById('loginScreenView');
+    const appContainer = document.getElementById('authenticatedAppContainer');
+    if (loginView) loginView.classList.remove('hidden');
+    if (appContainer) appContainer.classList.add('hidden');
+}
+
+function enterAsGuest() {
+    const loginView = document.getElementById('loginScreenView');
+    const appContainer = document.getElementById('authenticatedAppContainer');
+    if (loginView) loginView.classList.add('hidden');
+    if (appContainer) appContainer.classList.remove('hidden');
+    currentUser = null;
+    isAdminMode = false;
+    renderUserSession();
+    renderBranchUI();
+    showToast('Browsing in public guest mode.');
 }
 
 function openLoginModal() {
-    const errorDiv = document.getElementById('loginErrorMessage');
-    if (errorDiv) errorDiv.classList.add('hidden');
-    openModal('loginModal');
+    showLoginScreen();
 }
 
 async function quickDemoLogin(identifier) {
     const input = document.getElementById('manualFacultyIdInput');
     const pass = document.getElementById('manualPasswordInput');
+    const phoneInput = document.getElementById('manualPhoneInput');
     if (input) input.value = identifier;
     if (pass) pass.value = 'Fast@2026';
+    if (phoneInput) phoneInput.value = '+91 98480 11223';
     await submitManualLogin();
 }
 
 // ================= AUTHENTICATION & SESSION MANAGEMENT =================
 async function checkSession() {
+    const loginView = document.getElementById('loginScreenView');
+    const appContainer = document.getElementById('authenticatedAppContainer');
+
     try {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
@@ -126,6 +150,10 @@ async function checkSession() {
                 currentDepartment = currentUser.department;
             }
             localStorage.setItem('facultyduty_user', JSON.stringify(currentUser));
+            
+            if (loginView) loginView.classList.add('hidden');
+            if (appContainer) appContainer.classList.remove('hidden');
+
             renderUserSession();
             renderBranchUI();
             return;
@@ -142,6 +170,9 @@ async function checkSession() {
                     if (currentUser.department) {
                         currentDepartment = currentUser.department;
                     }
+                    if (loginView) loginView.classList.add('hidden');
+                    if (appContainer) appContainer.classList.remove('hidden');
+
                     renderUserSession();
                     renderBranchUI();
                     return;
@@ -151,17 +182,13 @@ async function checkSession() {
             }
         }
 
-        // Not logged in -> Normal Guest browsing mode (Entire site stays 100% visible & accessible!)
-        currentUser = null;
-        isAdminMode = false;
-        renderUserSession();
-        renderBranchUI();
+        // Not logged in -> Show Login Page by default
+        if (loginView) loginView.classList.remove('hidden');
+        if (appContainer) appContainer.classList.add('hidden');
     } catch (e) {
         console.error("Auth check failed:", e);
-        currentUser = null;
-        isAdminMode = false;
-        renderUserSession();
-        renderBranchUI();
+        if (loginView) loginView.classList.remove('hidden');
+        if (appContainer) appContainer.classList.add('hidden');
     }
 }
 
@@ -169,7 +196,10 @@ async function submitManualLogin(e) {
     if (e) e.preventDefault();
     const rawInput = (document.getElementById('manualFacultyIdInput')?.value || '').trim();
     const password = document.getElementById('manualPasswordInput')?.value || 'Fast@2026';
+    const phone = (document.getElementById('manualPhoneInput')?.value || '').trim();
     const errorDiv = document.getElementById('loginErrorMessage');
+    const loginView = document.getElementById('loginScreenView');
+    const appContainer = document.getElementById('authenticatedAppContainer');
 
     if (!rawInput) {
         if (errorDiv) {
@@ -179,11 +209,19 @@ async function submitManualLogin(e) {
         return;
     }
 
+    if (!password) {
+        if (errorDiv) {
+            errorDiv.innerText = 'Please enter your Password.';
+            errorDiv.classList.remove('hidden');
+        }
+        return;
+    }
+
     try {
         const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ faculty_id: rawInput, password })
+            body: JSON.stringify({ faculty_id: rawInput, password, phone })
         });
         const data = await res.json();
         if (res.ok) {
@@ -194,8 +232,9 @@ async function submitManualLogin(e) {
             }
             localStorage.setItem('facultyduty_user', JSON.stringify(currentUser));
             
-            // Close login modal
-            closeModal('loginModal');
+            // Switch from Login Page to Main Application
+            if (loginView) loginView.classList.add('hidden');
+            if (appContainer) appContainer.classList.remove('hidden');
             if (errorDiv) errorDiv.classList.add('hidden');
 
             renderUserSession();
@@ -231,13 +270,20 @@ async function logout() {
     currentUser = null;
     isAdminMode = false;
     localStorage.removeItem('facultyduty_user');
-    renderUserSession();
-    showToast('Logged out successfully.');
+    
+    // Switch to Login Gate Screen
+    const loginView = document.getElementById('loginScreenView');
+    const appContainer = document.getElementById('authenticatedAppContainer');
+    if (loginView) loginView.classList.remove('hidden');
+    if (appContainer) appContainer.classList.add('hidden');
+
+    showToast('Signed out successfully.');
 }
 
 function renderUserSession() {
     const badge = document.getElementById('userProfileBadge');
     const nameDisplay = document.getElementById('userNameDisplay');
+    const phoneDisplay = document.getElementById('userPhoneDisplay');
     const roleBadge = document.getElementById('userRoleBadge');
     const headerLoginBtn = document.getElementById('headerLoginBtn');
     const adminToggleBtn = document.getElementById('headerAdminToggleBtn');
@@ -264,18 +310,19 @@ function renderUserSession() {
         badge.classList.add('flex');
     }
     if (nameDisplay) nameDisplay.innerText = currentUser.full_name;
+    if (phoneDisplay) phoneDisplay.innerText = `📱 ${currentUser.phone || '+91 98480 11223'}`;
     if (personalBadge) personalBadge.innerText = `${currentUser.full_name} [${currentUser.department || 'CSE'}]`;
 
     if (roleBadge) {
         if (isHODUser) {
             roleBadge.innerText = `👑 HOD${deptTag}`;
-            roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow-sm border border-amber-300';
+            roleBadge.className = 'px-1.5 py-0.2 rounded text-[9px] uppercase font-black bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow-sm border border-amber-300';
         } else if (isAdminMode) {
             roleBadge.innerText = `👑 ADMIN${deptTag}`;
-            roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-amber-400 text-slate-950 shadow-sm';
+            roleBadge.className = 'px-1.5 py-0.2 rounded text-[9px] uppercase font-black bg-amber-400 text-slate-950 shadow-sm';
         } else {
             roleBadge.innerText = `FACULTY${deptTag}`;
-            roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-indigo-500/40 text-indigo-200 border border-indigo-400/40';
+            roleBadge.className = 'px-1.5 py-0.2 rounded text-[9px] uppercase font-black bg-indigo-500/40 text-indigo-200 border border-indigo-400/40';
         }
     }
 
@@ -536,26 +583,6 @@ async function verifyHodCodeAndActivate() {
     }
 }
 
-async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    localStorage.removeItem('facultyduty_user');
-    currentUser = null;
-    isAdminMode = false;
-    
-    // Switch to Login Gate Screen
-    const loginView = document.getElementById('loginScreenView');
-    const appContainer = document.getElementById('authenticatedAppContainer');
-    if (loginView) loginView.classList.remove('hidden');
-    if (appContainer) appContainer.classList.add('hidden');
-
-    const input = document.getElementById('manualFacultyIdInput');
-    const pass = document.getElementById('manualPasswordInput');
-    if (input) input.value = '';
-    if (pass) pass.value = 'password123';
-
-    showToast('Signed out successfully.');
-}
-
 // ================= 5-BRANCH ENGINEERING DEPARTMENT & SEMESTER CONTROLLER =================
 let allBranches = [];
 
@@ -608,7 +635,7 @@ function renderBranchUI() {
             semContainer.innerHTML = deptBranches.map(b => {
                 const isActive = (b.id === currentBranchId);
                 return `
-                    <button onclick="selectSemester(${b.id}, this)" class="semester-pill ${isActive ? 'active' : ''} px-3.5 py-1.5 rounded-xl text-xs font-black">
+                    <button onclick="selectSemester(${b.id}, this)" class="semester-pill ${isActive ? 'active' : ''} px-3.5 py-1.5 rounded-xl text-xs font-black cursor-pointer transition transform hover:scale-105 active:scale-95">
                         ${b.year} (${b.branch_name})
                     </button>
                 `;
