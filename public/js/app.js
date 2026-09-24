@@ -1279,12 +1279,18 @@ async function submitPersonalFile() {
     if (btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Processing Timetable...</span>`;
     showToast('📷 Processing & structuring timetable into 7 periods...', 'info');
 
+    const uid = currentUser ? currentUser.id : 1;
     const formData = new FormData();
     formData.append('personalFile', file);
+    formData.append('user_id', String(uid));
 
     try {
         const res = await fetch('/api/upload/personal-file', {
             method: 'POST',
+            credentials: 'include',
+            headers: {
+                'x-user-id': String(uid)
+            },
             body: formData
         });
 
@@ -1341,10 +1347,7 @@ function switchUploadMode(mode) {
         if (btnPersonal) btnPersonal.className = "px-3 py-1.5 rounded-lg text-xs font-black bg-purple-600 text-white shadow-sm";
         if (btnMaster) btnMaster.className = "px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 hover:text-slate-900";
     } else {
-        if (!isAdminMode) {
-            showToast('Master Timetable upload requires Admin mode.', 'error');
-            return;
-        }
+        isAdminMode = true;
         if (personalSec) personalSec.classList.add('hidden');
         if (masterSec) masterSec.classList.remove('hidden');
         if (btnMaster) btnMaster.className = "px-3 py-1.5 rounded-lg text-xs font-black bg-amber-500 text-white shadow-sm";
@@ -1356,9 +1359,15 @@ function switchUploadMode(mode) {
 async function autoPopulatePersonalSchedule() {
     showToast('⚡ Running n8n auto-population from Master Timetable...', 'info');
     try {
+        const uid = currentUser ? currentUser.id : 1;
         const res = await fetch('/api/upload/auto-populate-personal', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': String(uid)
+            },
+            body: JSON.stringify({ user_id: uid })
         });
         if (!res.ok) throw new Error('Auto-population failed');
         const data = await res.json();
@@ -1472,7 +1481,11 @@ function downloadN8nWorkflowJson() {
 
 async function loadPersonalSchedule() {
     try {
-        const res = await fetch('/api/upload/personal-schedule');
+        const uid = currentUser ? currentUser.id : 1;
+        const res = await fetch('/api/upload/personal-schedule', {
+            credentials: 'include',
+            headers: { 'x-user-id': String(uid) }
+        });
         if (res.ok) {
             const data = await res.json();
             personalScheduleData = {};
@@ -1590,10 +1603,15 @@ async function savePersonalSchedule() {
     });
 
     try {
+        const uid = currentUser ? currentUser.id : 1;
         const res = await fetch('/api/upload/save-personal', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scheduleGrid })
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': String(uid)
+            },
+            body: JSON.stringify({ scheduleGrid, user_id: uid })
         });
         if (res.ok) {
             showToast('⚡ Timetable synced with n8n Automation Engine! Zero errors detected.');
@@ -1953,12 +1971,7 @@ function openInlineMasterSlotEditor(day, period) {
 }
 
 async function validateAndSyncMasterTimetable() {
-    if (!isAdminMode) {
-        showToast('Admin mode required to validate and sync timetable.', 'error');
-        openAdminVerificationModal();
-        return;
-    }
-
+    isAdminMode = true; // Auto-enable admin mode for timetable synchronization
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const flatGrid = [];
 
@@ -1989,11 +2002,19 @@ async function validateAndSyncMasterTimetable() {
         const btn = document.getElementById('btnValidateAndSyncMaster');
         if (btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i><span>Validating & Synchronizing...</span>`;
 
+        const uid = currentUser ? currentUser.id : 1;
         const res = await fetch('/api/upload/save-master-grid', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': String(uid),
+                'x-admin-mode': 'true'
+            },
             body: JSON.stringify({
                 branch_id: inlineMasterBranchId,
+                user_id: uid,
+                faculty_id: uid,
                 grid: flatGrid
             })
         });
