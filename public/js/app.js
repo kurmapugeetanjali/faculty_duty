@@ -117,8 +117,10 @@ function enterAsGuest() {
     if (appContainer) appContainer.classList.remove('hidden');
     currentUser = null;
     isAdminMode = false;
+    switchTab('timetableTab', document.getElementById('navHomeTab'));
     renderUserSession();
     renderBranchUI();
+    if (currentBranchId) loadTimetable(currentBranchId);
     showToast('Browsing in public guest mode.');
 }
 
@@ -154,6 +156,7 @@ async function checkSession() {
             if (loginView) loginView.classList.add('hidden');
             if (appContainer) appContainer.classList.remove('hidden');
 
+            switchTab('timetableTab', document.getElementById('navHomeTab'));
             renderUserSession();
             renderBranchUI();
             return;
@@ -173,6 +176,7 @@ async function checkSession() {
                     if (loginView) loginView.classList.add('hidden');
                     if (appContainer) appContainer.classList.remove('hidden');
 
+                    switchTab('timetableTab', document.getElementById('navHomeTab'));
                     renderUserSession();
                     renderBranchUI();
                     return;
@@ -232,10 +236,13 @@ async function submitManualLogin(e) {
             }
             localStorage.setItem('facultyduty_user', JSON.stringify(currentUser));
             
-            // Switch from Login Page to Main Application
+            // Switch from Login Page to Main Application Home Page
             if (loginView) loginView.classList.add('hidden');
             if (appContainer) appContainer.classList.remove('hidden');
             if (errorDiv) errorDiv.classList.add('hidden');
+
+            // Open Home page tab
+            switchTab('timetableTab', document.getElementById('navHomeTab'));
 
             renderUserSession();
             renderBranchUI();
