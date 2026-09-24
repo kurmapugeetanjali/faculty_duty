@@ -143,11 +143,34 @@ async function checkSession() {
     const loginView = document.getElementById('loginScreenView');
     const appContainer = document.getElementById('authenticatedAppContainer');
 
+    // Fast local storage restore to prevent any screen flashing
+    const storedUser = localStorage.getItem('facultyduty_user');
+    if (storedUser) {
+        try {
+            const parsed = JSON.parse(storedUser);
+            if (parsed && parsed.full_name) {
+                currentUser = parsed;
+                isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD || currentUser.role === 'hos';
+                if (currentUser.department) {
+                    currentDepartment = currentUser.department;
+                }
+                if (loginView) loginView.classList.add('hidden');
+                if (appContainer) appContainer.classList.remove('hidden');
+
+                switchTab('timetableTab', document.getElementById('navHomeTab'));
+                renderUserSession();
+                renderBranchUI();
+            }
+        } catch (e) {
+            localStorage.removeItem('facultyduty_user');
+        }
+    }
+
     try {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
             currentUser = await res.json();
-            isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD;
+            isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD || currentUser.role === 'hos';
             if (currentUser.department) {
                 currentDepartment = currentUser.department;
             }
@@ -162,37 +185,17 @@ async function checkSession() {
             return;
         }
 
-        // Check local storage backup
-        const storedUser = localStorage.getItem('facultyduty_user');
-        if (storedUser) {
-            try {
-                const parsed = JSON.parse(storedUser);
-                if (parsed && parsed.full_name) {
-                    currentUser = parsed;
-                    isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD;
-                    if (currentUser.department) {
-                        currentDepartment = currentUser.department;
-                    }
-                    if (loginView) loginView.classList.add('hidden');
-                    if (appContainer) appContainer.classList.remove('hidden');
-
-                    switchTab('timetableTab', document.getElementById('navHomeTab'));
-                    renderUserSession();
-                    renderBranchUI();
-                    return;
-                }
-            } catch (e) {
-                localStorage.removeItem('facultyduty_user');
-            }
+        // If not logged in and no local storage, show login screen
+        if (!currentUser) {
+            if (loginView) loginView.classList.remove('hidden');
+            if (appContainer) appContainer.classList.add('hidden');
         }
-
-        // Not logged in -> Show Login Page by default
-        if (loginView) loginView.classList.remove('hidden');
-        if (appContainer) appContainer.classList.add('hidden');
     } catch (e) {
         console.error("Auth check failed:", e);
-        if (loginView) loginView.classList.remove('hidden');
-        if (appContainer) appContainer.classList.add('hidden');
+        if (!currentUser) {
+            if (loginView) loginView.classList.remove('hidden');
+            if (appContainer) appContainer.classList.add('hidden');
+        }
     }
 }
 
@@ -394,23 +397,21 @@ let hodOtpTimerInterval = null;
 let hodOtpExpiresAt = 0;
 
 function openAdminVerificationModal() {
-    if (isAdminMode) {
-        // Toggle Admin off
-        isAdminMode = false;
-        if (currentUser) currentUser.isAdminElevated = false;
+    if (isAdminMode || (currentUser && (currentUser.isHOD || currentUser.isAdminElevated || currentUser.role === 'hos'))) {
+        isAdminMode = true;
+        if (currentUser) currentUser.isAdminElevated = true;
         renderUserSession();
-        renderMasterTimetable(currentTimetableEntries);
-        showToast('Switched back to standard Faculty view mode.');
+        showToast(`👑 HOD Admin Mode is Active for ${currentUser?.department || currentDepartment} Department! Master edit & exam tools unlocked.`);
         return;
     }
 
-    // Reset to Step 1
+    // Reset to Step 1 for faculty seeking HOD admin elevation
     goToHodStep1();
     
     // Auto fill email from logged in user or default to HOD email
     const emailInput = document.getElementById('hodVerificationEmail');
     if (emailInput) {
-        emailInput.value = (currentUser && currentUser.email) ? currentUser.email : 'hod.cse@polytechnic.edu';
+        emailInput.value = (currentUser && currentUser.email) ? currentUser.email : `${(currentUser?.department || 'cse').toLowerCase()}.hod@polytechnic.edu`;
     }
 
     const codeInput = document.getElementById('hodOtpCodeInput');
