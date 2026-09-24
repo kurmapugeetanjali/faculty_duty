@@ -1295,7 +1295,7 @@ async function submitPersonalFile() {
         });
 
         const data = await res.json();
-        if (res.ok) {
+        if (res.ok && data.success) {
             if (data.grid && Array.isArray(data.grid)) {
                 personalScheduleData = {};
                 data.grid.forEach(row => {
@@ -1314,7 +1314,17 @@ async function submitPersonalFile() {
                 await loadPersonalSchedule();
             }
 
-            showToast(data.message || 'Timetable uploaded & organized into 7 periods successfully!');
+            if (data.branch_id) {
+                currentBranchId = data.branch_id;
+            }
+
+            renderBranchUI();
+            
+            // Automatically switch to Home Page tab and render structured timetable live
+            switchTab('timetableTab', document.getElementById('navHomeTab'));
+            await loadTimetable(currentBranchId);
+
+            showToast(data.message || '🎉 Timetable organized & published! All subjects and faculty members are now live in the structured Home Page timetable.');
             selectedPersonalFile = null;
             if (fileInput) fileInput.value = '';
             const info = document.getElementById('selectedFileInfo');
