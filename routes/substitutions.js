@@ -64,7 +64,7 @@ router.get('/available', async (req, res) => {
                 ) AS active_sub_count
             FROM users u
             WHERE (u.role = 'faculty' OR u.role = 'hos')
-            AND (u.department = $5 OR (u.department IN ('CSE', 'CME') AND $5 IN ('CSE', 'CME')))
+            AND (u.department = $5 OR $5 = 'ALL')
             AND u.id != $4
             -- Must NOT be teaching in any class/branch in the master timetable at this day & period
             AND u.id NOT IN (

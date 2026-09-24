@@ -48,6 +48,29 @@ body {
   border-color: #94a3b8;
 }
 
+/* Branch Selector Pills */
+.branch-pill {
+  transition: all 0.15s ease-in-out;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 800;
+}
+
+.branch-pill.active {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff !important;
+  border-color: #4338ca !important;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  transform: translateY(-1px);
+}
+
+.branch-pill:not(.active):hover {
+  border-color: #818cf8;
+  color: #4f46e5;
+  background: #eef2ff;
+}
+
 /* Semester Filter Buttons */
 .semester-pill {
   transition: all 0.15s ease-in-out;

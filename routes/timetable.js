@@ -21,9 +21,9 @@ router.get('/branches', async (req, res) => {
     try {
         let query = 'SELECT id, branch_name, department, year, section FROM branches';
         const params = [];
-        if (department) {
-            query += ` WHERE (department = $1 OR (department IN ('CSE', 'CME') AND $1 IN ('CSE', 'CME')))`;
-            params.push(department);
+        if (department && department !== 'ALL') {
+            query += ' WHERE department = $1';
+            params.push(department.toUpperCase());
         }
         query += ' ORDER BY id ASC';
 
@@ -38,18 +38,18 @@ router.get('/branches', async (req, res) => {
 // Get meta options (subjects and faculty) filtered by department
 router.get('/meta/options', async (req, res) => {
     const { department } = req.query;
-    const dept = department || 'CSE';
+    const dept = (department || 'CSE').toUpperCase();
     try {
         const subjectsRes = await pool.query(
             `SELECT id, subject_code, subject_name FROM subjects 
-             WHERE department = $1 OR (department IN ('CSE', 'CME') AND $1 IN ('CSE', 'CME')) 
+             WHERE department = $1 
              ORDER BY subject_code ASC`,
             [dept]
         );
         const facultyRes = await pool.query(
             `SELECT id, faculty_id, full_name, designation, phone FROM users 
              WHERE (role = 'faculty' OR role = 'hos') 
-             AND (department = $1 OR (department IN ('CSE', 'CME') AND $1 IN ('CSE', 'CME'))) 
+             AND department = $1 
              ORDER BY full_name ASC`,
             [dept]
         );

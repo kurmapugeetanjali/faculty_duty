@@ -197,8 +197,14 @@ async function submitManualLogin(e) {
             if (errorDiv) errorDiv.classList.add('hidden');
 
             renderUserSession();
-            const welcomeRole = (currentUser.isHOD || currentUser.role === 'hos') ? ' (HOD / Admin)' : '';
-            showToast(`Welcome, ${currentUser.full_name}${welcomeRole}! Loaded CSE schedule.`);
+            const welcomeRole = (currentUser.isHOD || currentUser.role === 'hos') ? ` (HOD ${currentUser.department || ''} / Admin)` : '';
+            showToast(`Welcome, ${currentUser.full_name}${welcomeRole}!`);
+            
+            if (currentUser.department) {
+                currentDepartment = currentUser.department;
+                renderBranchUI();
+            }
+
             await loadTimetable(currentBranchId);
             await loadInvigilations();
             await loadPersonalSchedule();
@@ -238,6 +244,7 @@ function renderUserSession() {
     }
 
     const isHODUser = currentUser.isHOD || currentUser.role === 'hos';
+    const deptTag = currentUser.department ? ` (${currentUser.department})` : '';
 
     if (headerLoginBtn) headerLoginBtn.classList.add('hidden');
     if (badge) {
@@ -245,17 +252,17 @@ function renderUserSession() {
         badge.classList.add('flex');
     }
     if (nameDisplay) nameDisplay.innerText = currentUser.full_name;
-    if (personalBadge) personalBadge.innerText = currentUser.full_name;
+    if (personalBadge) personalBadge.innerText = `${currentUser.full_name} [${currentUser.department || 'CSE'}]`;
 
     if (roleBadge) {
         if (isHODUser) {
-            roleBadge.innerText = '👑 HOD (ADMIN)';
+            roleBadge.innerText = `👑 HOD${deptTag}`;
             roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow-sm border border-amber-300';
         } else if (isAdminMode) {
-            roleBadge.innerText = '👑 ADMIN';
+            roleBadge.innerText = `👑 ADMIN${deptTag}`;
             roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-amber-400 text-slate-950 shadow-sm';
         } else {
-            roleBadge.innerText = 'FACULTY';
+            roleBadge.innerText = `FACULTY${deptTag}`;
             roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] uppercase font-black bg-indigo-500/40 text-indigo-200 border border-indigo-400/40';
         }
     }
@@ -266,9 +273,9 @@ function renderUserSession() {
         adminToggleBtn.classList.add('flex');
         if (adminText) {
             if (isHODUser) {
-                adminText.innerText = isAdminMode ? '👑 HOD Admin (Active)' : '👑 HOD Admin (Inactive)';
+                adminText.innerText = isAdminMode ? `👑 HOD Admin ${deptTag} Active` : `👑 HOD Admin ${deptTag}`;
             } else {
-                adminText.innerText = isAdminMode ? '👑 Admin Active' : '🛡️ HOD Admin Access';
+                adminText.innerText = isAdminMode ? `👑 Admin Active${deptTag}` : '🛡️ HOD Admin Access';
             }
         }
         adminToggleBtn.className = isAdminMode
@@ -537,37 +544,119 @@ async function logout() {
     showToast('Signed out successfully.');
 }
 
-// ================= CSE SEMESTER SELECTOR =================
-const semesterNames = {
-    1: 'CSE 1st Year',
-    2: 'CSE 3rd Sem',
-    3: 'CSE 4th Sem',
-    4: 'CSE 5th Sem',
-    5: 'CSE 6th Sem'
-};
+// ================= 5-BRANCH ENGINEERING DEPARTMENT & SEMESTER CONTROLLER =================
+let allBranches = [];
+
+async function loadBranches() {
+    try {
+        const res = await fetch('/api/timetable/branches');
+        if (!res.ok) return;
+        allBranches = await res.json();
+        renderBranchUI();
+    } catch (e) {
+        console.error("Error loading branches:", e);
+    }
+}
+
+function renderBranchUI() {
+    // 1. Highlight active branch button
+    const branchBtns = document.querySelectorAll('#branchPillContainer .branch-pill');
+    branchBtns.forEach(btn => {
+        const dept = btn.getAttribute('data-dept');
+        if (dept === currentDepartment) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    const deptFullNames = {
+        'CSE': 'Computer Science & Engineering',
+        'MECH': 'Mechanical Engineering',
+        'EEE': 'Electrical & Electronics Engineering',
+        'ECE': 'Electronics & Communication Engineering',
+        'CIVIL': 'Civil Engineering'
+    };
+
+    const branchBadge = document.getElementById('currentBranchBadge');
+    if (branchBadge) {
+        branchBadge.innerText = `${currentDepartment} • ${deptFullNames[currentDepartment] || 'Engineering'}`;
+    }
+
+    const subTitle = document.getElementById('currentSemesterSubtitle');
+    if (subTitle) {
+        subTitle.innerText = `Showing all 5 semesters for ${currentDepartment} Department`;
+    }
+
+    // 2. Render Semester pills for the active department
+    const semContainer = document.getElementById('semesterPillContainer');
+    if (semContainer) {
+        const deptBranches = allBranches.filter(b => b.department === currentDepartment);
+        if (deptBranches.length > 0) {
+            semContainer.innerHTML = deptBranches.map(b => {
+                const isActive = (b.id === currentBranchId);
+                return `
+                    <button onclick="selectSemester(${b.id}, this)" class="semester-pill ${isActive ? 'active' : ''} px-3.5 py-1.5 rounded-xl text-xs font-black">
+                        ${b.year} (${b.branch_name})
+                    </button>
+                `;
+            }).join('');
+        }
+    }
+
+    // 3. Update Admin upload target semester dropdown
+    const adminSelect = document.getElementById('adminUploadTargetSemester');
+    if (adminSelect && allBranches.length > 0) {
+        adminSelect.innerHTML = allBranches.map(b => 
+            `<option value="${b.id}" ${b.id === currentBranchId ? 'selected' : ''}>${b.department} - ${b.branch_name} (${b.year})</option>`
+        ).join('');
+    }
+}
+
+async function selectBranch(deptCode, btnElement) {
+    currentDepartment = deptCode;
+    
+    // Pick the default branch for this department (prefer 5th Sem or first)
+    const deptBranches = allBranches.filter(b => b.department === currentDepartment);
+    if (deptBranches.length > 0) {
+        const prefBranch = deptBranches.find(b => b.branch_name.includes('5th')) || deptBranches[0];
+        currentBranchId = prefBranch.id;
+    }
+
+    renderBranchUI();
+
+    const activeBranch = allBranches.find(b => b.id === currentBranchId);
+    const headerTitle = document.getElementById('timetableHeaderTitle');
+    if (headerTitle && activeBranch) {
+        headerTitle.innerText = `Main Weekly Timetable - ${activeBranch.branch_name}`;
+    }
+
+    // Reload meta options for this department
+    await loadMetaOptions();
+
+    // Reset substitute results
+    selectedSlot = null;
+    resetSubstitutePanel();
+
+    // Load master timetable
+    await loadTimetable(currentBranchId);
+}
 
 async function selectSemester(branchId, btnElement) {
     currentBranchId = branchId;
-    
-    // Update active UI pill
-    document.querySelectorAll('.semester-pill').forEach(btn => btn.classList.remove('active'));
-    if (btnElement) {
-        btnElement.classList.add('active');
-    } else {
-        const pills = document.querySelectorAll('.semester-pill');
-        if (pills[branchId - 1]) pills[branchId - 1].classList.add('active');
+    const branch = allBranches.find(b => b.id === branchId);
+    if (branch) {
+        currentDepartment = branch.department;
     }
 
-    const titleEl = document.getElementById('currentSemesterTitle');
+    renderBranchUI();
+
     const headerTitle = document.getElementById('timetableHeaderTitle');
-    const semName = semesterNames[branchId] || `CSE Semester ${branchId}`;
-    
-    if (titleEl) titleEl.innerText = `Main Weekly Schedule • ${semName}`;
-    if (headerTitle) headerTitle.innerText = `Main Weekly Timetable - ${semName}`;
+    if (headerTitle && branch) {
+        headerTitle.innerText = `Main Weekly Timetable - ${branch.branch_name}`;
+    }
 
-    showToast(`Loaded ${semName}`, 'info');
-
-    // Clear previous substitute results
+    // Reset substitute results
     selectedSlot = null;
     resetSubstitutePanel();
 
@@ -592,28 +681,10 @@ function resetSubstitutePanel() {
     if (countBadge) countBadge.innerText = 'Select any slot';
 }
 
-async function loadBranches() {
-    try {
-        const res = await fetch('/api/timetable/branches?department=CSE');
-        if (!res.ok) return;
-        const branches = await res.json();
-        if (branches.length > 0) {
-            const adminSelect = document.getElementById('adminUploadTargetSemester');
-            if (adminSelect) {
-                adminSelect.innerHTML = branches.map(b => 
-                    `<option value="${b.id}" ${b.id === 4 ? 'selected' : ''}>${b.branch_name}</option>`
-                ).join('');
-            }
-        }
-    } catch (e) {
-        console.error("Error loading branches:", e);
-    }
-}
-
 // ================= META OPTIONS =================
 async function loadMetaOptions() {
     try {
-        const res = await fetch('/api/timetable/meta/options?department=CSE');
+        const res = await fetch(`/api/timetable/meta/options?department=${currentDepartment}`);
         if (res.ok) {
             metaOptions = await res.json();
             populateMetaDropdowns();
@@ -918,11 +989,6 @@ function renderFacultyCards(facultyList, day, period, entry) {
                             <i data-lucide="message-square" class="w-4 h-4"></i> WhatsApp
                         </a>
                     </div>
-                    <button onclick="selectSubstituteCandidate(${fac.id}, '${escapedName}', '${day}', ${period}, ${isExamBusy})" 
-                            class="w-full py-2.5 px-3 rounded-xl ${isExamBusy ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white'} text-xs font-black flex items-center justify-center gap-1.5 shadow-md transition">
-                        <i data-lucide="user-check" class="w-4 h-4"></i>
-                        <span>Select as Substitute</span>
-                    </button>
                 </div>
             </div>
         `;
@@ -931,52 +997,13 @@ function renderFacultyCards(facultyList, day, period, entry) {
     if (window.lucide) lucide.createIcons();
 }
 
-async function selectSubstituteCandidate(facId, facName, day, period, isExamBusy) {
-    if (!selectedSlot || !selectedSlot.entry) {
-        showToast(`Selected Prof. ${facName} for ${day} Period ${period}. Tap a scheduled class slot above to record the official substitution.`, 'info');
-        return;
-    }
-
-    const warningText = isExamBusy ? `\n\n⚠️ Notice: Prof. ${facName} is currently marked on Exam Invigilation duty. Proceed only if they are available to cover.` : '';
-    if (!confirm(`Confirm Substitution:\nAssign Prof. ${facName} as substitute for "${selectedSlot.entry.subject_name}" on ${day} Period ${period}?${warningText}`)) {
-        return;
-    }
-
-    const dateInput = document.getElementById('substitutionDateInput');
-    const selectedDate = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
-
-    try {
-        const res = await fetch('/api/substitutions/assign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                timetable_id: selectedSlot.entry.id,
-                date: selectedDate,
-                substitute_faculty_id: facId,
-                reason: isExamBusy ? 'Special faculty substitution (Exam overlap agreed)' : 'Routine substitute assignment'
-            })
-        });
-
-        const data = await res.json();
-        if (res.ok) {
-            showToast(`✅ Successfully assigned Prof. ${facName} for ${selectedSlot.entry.subject_name}!`);
-            await queryAvailableSubstitutes(day, period, selectedSlot.entry);
-        } else {
-            showToast(data.error || 'Failed to record substitution', 'error');
-        }
-    } catch (err) {
-        console.error("Assignment error:", err);
-        showToast('Error recording substitution', 'error');
-    }
-}
-
 async function queryAvailableSubstitutes(day, period, entry) {
     const dateInput = document.getElementById('substitutionDateInput');
     const selectedDate = dateInput.value;
     const originalFacultyId = entry ? entry.faculty_id : (currentUser ? currentUser.id : 0);
 
     try {
-        const res = await fetch(`/api/substitutions/available?date=${selectedDate}&day=${day}&period=${period}&original_faculty_id=${originalFacultyId}&department=CSE`);
+        const res = await fetch(`/api/substitutions/available?date=${selectedDate}&day=${day}&period=${period}&original_faculty_id=${originalFacultyId}&department=${currentDepartment}`);
         if (!res.ok) throw new Error('Failed to fetch faculty list');
 
         const facultyList = await res.json();
@@ -989,7 +1016,7 @@ async function queryAvailableSubstitutes(day, period, entry) {
 // ================= EXAM INVIGILATION DUTIES & ADMIN UPLOAD =================
 async function loadInvigilations() {
     try {
-        const res = await fetch('/api/invigilation?department=CSE');
+        const res = await fetch('/api/invigilation');
         if (!res.ok) throw new Error('Failed to load invigilation');
 
         const exams = await res.json();
@@ -1000,9 +1027,37 @@ async function loadInvigilations() {
         if (!tbody) return;
 
         if (exams.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-xs text-slate-400 font-semibold">No scheduled exam invigilations found for CSE department.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-xs text-slate-400 font-semibold">No scheduled exam invigilations found.</td></tr>`;
             return;
         }
+
+        tbody.innerHTML = exams.map(e => `
+            <tr class="hover:bg-amber-50/60 transition">
+                <td class="p-3 font-bold text-amber-950">${e.department || 'All'}</td>
+                <td class="p-3 font-extrabold text-slate-900">${e.exam_name}</td>
+                <td class="p-3 font-semibold text-slate-600">${e.exam_date}</td>
+                <td class="p-3 font-extrabold text-indigo-700">${e.faculty_name || 'Unassigned'}</td>
+                <td class="p-3 font-bold text-slate-800">${e.hall_no || 'Assigned Hall'}</td>
+                <td class="p-3 font-medium text-slate-700 font-code">
+                    ${e.faculty_phone ? `<a href="tel:${e.faculty_phone}" class="hover:underline text-indigo-600 font-bold">${e.faculty_phone}</a>` : '---'}
+                </td>
+                <td class="p-3 text-right">
+                    ${isAdminMode ? `
+                        <button onclick="deleteInvigilationDuty(${e.id})" class="text-red-500 hover:text-red-700 font-black text-xs px-2 py-1 rounded bg-red-50 border border-red-200 hover:bg-red-100 transition">
+                            🗑️ Delete
+                        </button>
+                    ` : `
+                        <span class="text-[10px] text-slate-400 font-bold">Scheduled</span>
+                    `}
+                </td>
+            </tr>
+        `).join('');
+
+        if (window.lucide) lucide.createIcons();
+    } catch (e) {
+        console.error("Error loading invigilations:", e);
+    }
+}
 
         tbody.innerHTML = exams.map(e => `
             <tr class="hover:bg-amber-50/60 transition">

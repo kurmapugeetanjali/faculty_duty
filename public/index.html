@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>F.A.S.T - Faculty Alternative Substitute Tracker (CSE)</title>
+  <title>F.A.S.T - Faculty Alternative Substitute Tracker</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -31,10 +31,10 @@
         </div>
         <div>
           <span class="inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-1">
-            STATE POLYTECHNIC • CSE DEPARTMENT
+            STATE POLYTECHNIC • MULTI-DEPARTMENT PORTAL
           </span>
           <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-1.5">
-            F.A.S.T <span class="text-amber-300">CSE</span>
+            F.A.S.T
           </h1>
           <p class="text-xs text-indigo-200 font-bold mt-1">
             Faculty Alternative Substitute Tracker
@@ -45,13 +45,13 @@
       <!-- Feature Highlight Badges -->
       <div class="flex items-center justify-center gap-2 flex-wrap text-[11px] font-bold text-slate-300">
         <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
-          🕒 08:00 AM - 01:30 PM (Break 10:15-10:30)
+          🏢 CSE • MECH • EEE • ECE • CIVIL
         </span>
         <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
-          ⚡ Background Substitute Match
+          🕒 08:00 AM - 01:30 PM
         </span>
         <span class="bg-slate-900/80 border border-slate-700/60 px-2.5 py-1 rounded-xl flex items-center gap-1">
-          🛡️ Exam Duty Roster
+          ⚡ Automated Free Match
         </span>
       </div>
 
@@ -61,10 +61,10 @@
         <div class="border-b border-white/10 pb-3">
           <h2 class="text-lg font-black text-white flex items-center gap-2">
             <i data-lucide="log-in" class="w-5 h-5 text-amber-400"></i>
-            <span>Faculty Login</span>
+            <span>Institutional Faculty Login</span>
           </h2>
           <p class="text-xs text-indigo-200 mt-0.5 font-medium">
-            Login with your Name or Faculty ID to access schedules and substitution tracker.
+            Login with your Name or Faculty ID to access schedules across all branches.
           </p>
         </div>
 
@@ -112,7 +112,7 @@
 
       <!-- Live Clock & Footer Note -->
       <div class="text-center text-[11px] text-indigo-300/80 font-medium">
-        <span id="loginGateClockDisplay"></span> • State Polytechnic Computer Engineering
+        <span id="loginGateClockDisplay"></span> • State Polytechnic / Engineering College
       </div>
 
     </div>
@@ -124,8 +124,8 @@
     <!-- ================= TOP NOTIFICATION BANNER ================= -->
     <div class="bg-slate-950 text-slate-300 text-[11px] py-1.5 px-4 text-center border-b border-slate-800 font-medium tracking-wide flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <span class="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase">CSE DEPARTMENT</span>
-        <span class="hidden sm:inline text-slate-300">F.A.S.T — Faculty Alternative Substitute Tracker</span>
+        <span class="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase">INSTITUTIONAL PORTAL</span>
+        <span class="hidden sm:inline text-slate-300">F.A.S.T — Faculty Alternative Substitute Tracker (All Branches)</span>
       </div>
       <div class="flex items-center gap-2">
         <span id="liveClockDisplay" class="font-mono text-amber-400 font-bold text-[11px]"></span>
@@ -143,7 +143,7 @@
       <div>
         <div class="flex items-center gap-2">
           <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1">
-            F.A.S.T <span class="text-amber-300">CSE</span>
+            F.A.S.T
           </h1>
           <span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 uppercase tracking-wider hidden xs:inline">
             Live
@@ -196,7 +196,7 @@
       <button onclick="switchTab('invigilationTab', this)" id="navExamTab" class="nav-tab nav-tab-colorful-inactive flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition">
         <i data-lucide="shield-check" class="w-4 h-4 text-amber-500"></i>
         <span>Exam Invigilation</span>
-        <span id="examCountBadge" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black">3</span>
+        <span id="examCountBadge" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black">6</span>
       </button>
 
       <!-- 3. Update & Edit Timetable Tab -->
@@ -219,37 +219,60 @@
     <!-- ================= TAB 1: HOME (MAIN TIMETABLE + SUBSTITUTES) ================= -->
     <section id="timetableTab" class="tab-pane active space-y-5">
       
-      <!-- CSE Semester Selector Bar -->
-      <div class="card-colorful p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase">Computer Science & Engineering</span>
-            <span id="currentSemesterTitle" class="text-xs font-bold text-slate-500">Main Weekly Schedule</span>
+      <!-- 5-Branch Engineering Department Selector Bar -->
+      <div class="card-colorful p-4 sm:p-5 space-y-4">
+        
+        <!-- Top Branch Header -->
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-indigo-100 pb-3">
+          <div class="space-y-0.5">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase tracking-wider">Multi-Branch Timetable System</span>
+              <span id="currentBranchBadge" class="text-xs font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">CSE Department</span>
+            </div>
+            <h2 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+              <i data-lucide="building-2" class="w-5 h-5 text-indigo-600"></i>
+              Select Engineering Branch:
+            </h2>
           </div>
-          <h2 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
-            <i data-lucide="layers" class="w-5 h-5 text-indigo-600"></i>
-            Select CSE Semester:
-          </h2>
+
+          <!-- 5 Branch Selection Pills -->
+          <div class="flex items-center gap-1.5 flex-wrap w-full md:w-auto" id="branchPillContainer">
+            <button onclick="selectBranch('CSE', this)" data-dept="CSE" class="branch-pill active px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition">
+              <span>💻</span> <span>CSE</span>
+            </button>
+            <button onclick="selectBranch('MECH', this)" data-dept="MECH" class="branch-pill px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition">
+              <span>⚙️</span> <span>MECH</span>
+            </button>
+            <button onclick="selectBranch('EEE', this)" data-dept="EEE" class="branch-pill px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition">
+              <span>⚡</span> <span>EEE</span>
+            </button>
+            <button onclick="selectBranch('ECE', this)" data-dept="ECE" class="branch-pill px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition">
+              <span>📡</span> <span>ECE</span>
+            </button>
+            <button onclick="selectBranch('CIVIL', this)" data-dept="CIVIL" class="branch-pill px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition">
+              <span>🏗️</span> <span>CIVIL</span>
+            </button>
+          </div>
         </div>
 
-        <!-- 5 Dedicated CSE Semester Buttons (Clean - No regulation text) -->
-        <div class="flex items-center gap-1.5 flex-wrap w-full md:w-auto" id="semesterPillContainer">
-          <button onclick="selectSemester(1, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
-            CSE 1st Year
-          </button>
-          <button onclick="selectSemester(2, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
-            CSE 3rd Sem
-          </button>
-          <button onclick="selectSemester(3, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
-            CSE 4th Sem
-          </button>
-          <button onclick="selectSemester(4, this)" class="semester-pill active px-3.5 py-1.5 rounded-xl text-xs font-black">
-            CSE 5th Sem
-          </button>
-          <button onclick="selectSemester(5, this)" class="semester-pill px-3.5 py-1.5 rounded-xl text-xs font-black">
-            CSE 6th Sem
-          </button>
+        <!-- Semester Selector Bar for Selected Branch -->
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 pt-1">
+          <div class="space-y-0.5">
+            <h3 class="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="layers" class="w-4 h-4 text-purple-600"></i>
+              <span>Select Semester / Class:</span>
+            </h3>
+            <p id="currentSemesterSubtitle" class="text-[11px] text-slate-500 font-semibold">
+              Showing semesters for CSE
+            </p>
+          </div>
+
+          <!-- Dynamic Semester Buttons for the Active Branch (1st Year, 3rd, 4th, 5th, 6th Sem) -->
+          <div class="flex items-center gap-1.5 flex-wrap w-full md:w-auto" id="semesterPillContainer">
+            <!-- Dynamically populated via app.js -->
+          </div>
         </div>
+
       </div>
 
       <!-- Main Weekly Timetable Card for Selected Semester (Periods 1 to 7 - NO LUNCH COLUMN) -->

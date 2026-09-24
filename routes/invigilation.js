@@ -46,9 +46,9 @@ router.get('/', async (req, res) => {
         const conditions = [];
         const params = [];
 
-        if (department) {
-            params.push(department);
-            conditions.push(`(ei.department = $${params.length} OR (ei.department IN ('CSE', 'CME') AND $${params.length} IN ('CSE', 'CME')))`);
+        if (department && department !== 'ALL') {
+            params.push(department.toUpperCase());
+            conditions.push(`ei.department = $${params.length}`);
         }
         if (date) {
             params.push(date);
