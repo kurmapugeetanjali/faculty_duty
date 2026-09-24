@@ -575,7 +575,7 @@
         </form>
       </div>
 
-      <!-- Invigilation Duty List Table -->
+      <!-- Invigilation Duty List Table (3 Columns: Faculty Name, Room Number, Date) -->
       <div class="card-colorful p-4 sm:p-5 overflow-hidden">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
           <h3 class="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
@@ -583,25 +583,22 @@
             <span>Official Exam Duty Roster</span>
           </h3>
           <span class="text-xs font-bold text-slate-500">
-            💡 Faculty names on this roster are flagged with invigilation status during substitution search.
+            💡 3 Roster Columns: Faculty Name, Room Number & Exam Date
           </span>
         </div>
 
         <div class="mobile-timetable-container overflow-x-auto rounded-xl border border-slate-200">
-          <table class="w-full text-left border-collapse min-w-[700px]">
+          <table class="w-full text-left border-collapse min-w-[650px]">
             <thead>
               <tr class="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white text-[11px] font-black uppercase tracking-wider">
-                <th class="p-3">Department</th>
-                <th class="p-3">Exam Title</th>
-                <th class="p-3">Date</th>
-                <th class="p-3">Assigned Invigilator</th>
-                <th class="p-3">Hall / Room</th>
-                <th class="p-3">Contact</th>
+                <th class="p-3">👤 Name of the Faculty</th>
+                <th class="p-3">🚪 Room Number</th>
+                <th class="p-3">📅 Date</th>
                 <th class="p-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody id="invigilationTableBody" class="divide-y divide-slate-100 text-xs">
-              <!-- Dynamically populated via JS -->
+              <!-- Dynamically populated via JS: Shows "No schedules have been uploaded yet" if empty -->
             </tbody>
           </table>
         </div>
@@ -619,7 +616,7 @@
               📝 Timetable Editor
             </span>
             <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black">
-              Individual Faculty Privacy & Admin Master Control
+              Faculty Personal Schedule & Admin Master Control
             </span>
           </div>
           <h2 class="text-base sm:text-xl font-black text-slate-900 flex items-center gap-2">
@@ -627,7 +624,7 @@
             Update & Edit Timetables
           </h2>
           <p id="uploadTabSubheading" class="text-xs text-slate-500 font-medium mt-0.5">
-            Faculty manage and update their personal weekly schedule; Admin can update semester master timetables.
+            Faculty manage and sync their personal weekly timetable; Admin can update semester master timetables.
           </p>
         </div>
 
@@ -642,67 +639,36 @@
         </div>
       </div>
 
-      <!-- 1. PERSONAL TIMETABLE SECTION (Faculty Edits/Uploads Their Own Timetable ONLY) -->
+      <!-- 1. PERSONAL TIMETABLE SECTION (Faculty Manual Edit & Direct Sync Only) -->
       <div id="personalTimetableSection" class="space-y-4">
         
-        <!-- 3 Upload & Edit Options Card -->
-        <div class="card-colorful p-5 sm:p-6 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/70 border-2 border-purple-300 space-y-4 shadow-md">
-          <div class="flex items-start justify-between gap-2">
+        <!-- Manual Edit Guidance & Quick Controls Card -->
+        <div class="card-colorful p-5 sm:p-6 bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/80 border-2 border-purple-300 space-y-4 shadow-md">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-800 border border-purple-300">
-                📷 Photo / Camera Snap / PDF / Auto-Populate Options
+                ✍️ Faculty Manual Schedule Editor
               </span>
               <h3 class="text-base sm:text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
-                <i data-lucide="upload-cloud" class="w-5 h-5 text-purple-600"></i>
-                Update Your Personal Timetable
+                <i data-lucide="calendar" class="w-5 h-5 text-purple-600"></i>
+                Set Your Personal Weekly Timetable
               </h3>
               <p class="text-xs text-slate-600 mt-0.5">
-                Update your schedule by taking a picture with your phone camera, uploading a PDF/image, auto-populating from the department master timetable, or directly editing the grid below.
-              </p>
-            </div>
-          </div>
-
-          <!-- File / Camera Dropzone -->
-          <div class="border-2 border-dashed border-purple-300 hover:border-purple-500 rounded-2xl p-5 text-center bg-white/90 transition cursor-pointer" onclick="document.getElementById('personalTimetableFileInput').click()">
-            <input type="file" id="personalTimetableFileInput" accept="image/*,application/pdf" capture="environment" onchange="handlePersonalFileSelect(event)" class="hidden" />
-            
-            <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mx-auto mb-2.5 shadow-inner">
-              <i data-lucide="camera" class="w-6 h-6"></i>
-            </div>
-            
-            <div id="fileUploadPrompt">
-              <p class="text-sm font-black text-slate-800">
-                Tap to Take Photo (Camera) or Browse Timetable Image / PDF
-              </p>
-              <p class="text-xs text-slate-500 mt-0.5">
-                Supports live camera snap, JPG, PNG, WEBP & PDF files (Max 15MB)
+                Every logged-in faculty member enters their personal schedule here. Tap any period in the matrix below to mark as <strong class="text-emerald-700 font-bold">🟢 Free</strong> or <strong class="text-indigo-700 font-bold">📚 Class</strong>, then click <strong>💾 Sync with Timetable</strong>.
               </p>
             </div>
 
-            <div id="selectedFileInfo" class="hidden flex items-center justify-center gap-2 mt-2 bg-purple-50 py-2 px-4 rounded-xl border border-purple-200 w-fit mx-auto">
-              <i data-lucide="file-check" class="w-4 h-4 text-emerald-600"></i>
-              <span id="selectedFileName" class="text-xs font-extrabold text-slate-800"></span>
-              <span id="selectedFileSize" class="text-[10px] text-purple-700 bg-purple-200 px-1.5 py-0.2 rounded"></span>
-            </div>
-          </div>
-
-          <!-- Quick Action Buttons -->
-          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-purple-200">
+            <!-- Quick Auto-Fill Buttons -->
             <div class="flex items-center gap-2 flex-wrap">
               <button type="button" onclick="autoPopulatePersonalSchedule()" class="px-3.5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-1.5 transition">
                 <i data-lucide="zap" class="w-4 h-4 text-amber-300"></i>
-                <span>⚡ Auto-Populate from Master Timetable</span>
+                <span>⚡ Auto-Fill from Master Timetable</span>
               </button>
               <button type="button" onclick="markAllUnscheduledAsFree()" class="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition">
                 <i data-lucide="check-circle-2" class="w-4 h-4"></i>
                 <span>✨ Mark Unassigned as FREE</span>
               </button>
             </div>
-            
-            <button type="button" id="btnUploadPersonalFile" onclick="submitPersonalFile()" class="px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
-              <i data-lucide="file-check-2" class="w-4 h-4"></i>
-              <span>📷 Organize & Update Timetable</span>
-            </button>
           </div>
         </div>
 
@@ -717,7 +683,7 @@
                 <span class="text-xs font-bold text-slate-500">My Weekly Timetable (Periods 1 to 7)</span>
               </div>
               <p class="text-xs text-slate-500 mt-1">
-                ✍️ <strong>Direct Manual Edit</strong>: Click on any period slot to toggle between <strong class="text-emerald-700 font-black">🟢 Free</strong> and <strong class="text-indigo-700 font-black">📚 Class</strong> or edit slot notes, then click <strong>💾 Save & Sync My Timetable</strong>.
+                📌 Tap on any period box to toggle between <strong class="text-emerald-700 font-black">🟢 Free Slot</strong> and <strong class="text-indigo-700 font-black">📚 Class Slot</strong>.
               </p>
             </div>
             <div class="flex items-center gap-2">
@@ -751,11 +717,14 @@
             </table>
           </div>
 
-          <!-- PROMINENT SAVE BUTTON -->
-          <div class="flex justify-end pt-2">
-            <button onclick="savePersonalSchedule()" class="px-6 py-3 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg shadow-green-600/25 flex items-center gap-2 transition transform hover:-translate-y-0.5 active:translate-y-0">
-              <i data-lucide="save" class="w-4 h-4"></i>
-              <span>💾 Save & Sync My Timetable</span>
+          <!-- PROMINENT SYNC WITH TIMETABLE BUTTON -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <p class="text-xs text-slate-500 font-medium">
+              💡 Stored in background for substitution comparison. Other teachers can see if you're free to substitute.
+            </p>
+            <button onclick="savePersonalSchedule()" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-xs sm:text-sm font-black bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-lg shadow-green-600/30 flex items-center justify-center gap-2.5 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+              <i data-lucide="refresh-cw" class="w-4 h-4 animate-spin-slow"></i>
+              <span>💾 Sync with Timetable</span>
             </button>
           </div>
         </div>

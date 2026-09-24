@@ -59,12 +59,12 @@ router.post('/compare-substitution', async (req, res) => {
             status: "running"
         });
         const examBusyRes = await pool.query(
-            `SELECT DISTINCT faculty_id FROM exam_invigilation WHERE exam_date = $1 AND session LIKE $2 AND faculty_id IS NOT NULL`,
-            [date, examSessionPattern]
+            `SELECT DISTINCT faculty_id FROM exam_invigilation WHERE exam_date = $1 AND faculty_id IS NOT NULL`,
+            [date]
         );
         const examBusyIds = examBusyRes.rows.map(r => r.faculty_id);
         pipelineTrace[2].status = "completed";
-        pipelineTrace[2].result = `${examBusyIds.length} faculty members are on exam invigilation duty during this session.`;
+        pipelineTrace[2].result = `${examBusyIds.length} faculty members are on exam invigilation duty during this date.`;
 
         // Step 4: Existing Substitutions Check
         pipelineTrace.push({

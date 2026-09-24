@@ -1098,23 +1098,46 @@ async function loadInvigilations() {
         if (!tbody) return;
 
         if (exams.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-xs text-slate-400 font-semibold">No scheduled exam invigilations found.</td></tr>`;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="p-8 text-center text-xs text-slate-500 font-bold bg-amber-50/40">
+                        <div class="flex flex-col items-center justify-center gap-2 py-4">
+                            <span class="text-3xl">📋</span>
+                            <p class="text-sm font-black text-slate-800">No schedules have been uploaded yet</p>
+                            <p class="text-xs text-slate-500 font-medium max-w-sm">Please upload the official examination invigilation schedule photo/notice above to assign duties.</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
             return;
         }
 
         tbody.innerHTML = exams.map(e => `
             <tr class="hover:bg-amber-50/60 transition">
-                <td class="p-3 font-bold text-amber-950">${e.department || 'All'}</td>
-                <td class="p-3 font-extrabold text-slate-900">${e.exam_name}</td>
-                <td class="p-3 font-semibold text-slate-600">${e.exam_date}</td>
-                <td class="p-3 font-extrabold text-indigo-700">${e.faculty_name || 'Unassigned'}</td>
-                <td class="p-3 font-bold text-slate-800">${e.hall_no || 'Assigned Hall'}</td>
-                <td class="p-3 font-medium text-slate-700 font-code">
-                    ${e.faculty_phone ? `<a href="tel:${e.faculty_phone}" class="hover:underline text-indigo-600 font-bold">${e.faculty_phone}</a>` : '---'}
+                <td class="p-3.5">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs shadow-xs">
+                            👤
+                        </div>
+                        <div>
+                            <div class="font-black text-slate-900 text-xs">${e.faculty_name || 'Unassigned Faculty'}</div>
+                            ${e.faculty_phone ? `<div class="text-[11px] text-indigo-600 font-semibold font-mono"><a href="tel:${e.faculty_phone}" class="hover:underline">📞 ${e.faculty_phone}</a></div>` : ''}
+                        </div>
+                    </div>
                 </td>
-                <td class="p-3 text-right">
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                        🚪 ${e.hall_no || 'Assigned Room'}
+                    </span>
+                </td>
+                <td class="p-3.5">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                        📅 ${e.exam_date}
+                    </span>
+                </td>
+                <td class="p-3.5 text-right">
                     ${isAdminMode ? `
-                        <button onclick="deleteInvigilationDuty(${e.id})" class="text-red-500 hover:text-red-700 font-black text-xs px-2 py-1 rounded bg-red-50 border border-red-200 hover:bg-red-100 transition">
+                        <button onclick="deleteInvigilationDuty(${e.id})" class="text-red-500 hover:text-red-700 font-black text-xs px-2.5 py-1 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 transition cursor-pointer">
                             🗑️ Delete
                         </button>
                     ` : `
@@ -1171,34 +1194,63 @@ async function submitAdminInvigilationSheet(e) {
     const hallNo = document.getElementById('adminExamHallInput').value;
     const facultyId = document.getElementById('adminExamFacultySelect').value;
     const fileInput = document.getElementById('adminInvigFileInput');
-
-    const formData = new FormData();
-    formData.append('exam_name', examName);
-    formData.append('exam_date', examDate);
-    formData.append('hall_no', hallNo);
-    formData.append('faculty_id', facultyId);
-    if (fileInput && fileInput.files && fileInput.files[0]) {
-        formData.append('examFile', fileInput.files[0]);
-    }
+    const hasFile = fileInput && fileInput.files && fileInput.files[0];
 
     try {
-        const res = await fetch('/api/invigilation/upload-schedule', {
-            method: 'POST',
-            body: formData
-        });
+        if (hasFile) {
+            showToast('📷 Scanning & processing exam duty notice with OCR...', 'info');
+            const formData = new FormData();
+            formData.append('exam_name', examName || 'Semester Examination');
+            formData.append('exam_date', examDate);
+            formData.append('hall_no', hallNo || 'Drawing Hall-1');
+            formData.append('examFile', fileInput.files[0]);
 
-        if (res.ok) {
-            showToast('Exam duty sheet uploaded and added to roster!');
-            document.getElementById('adminInvigUploadForm').reset();
-            const info = document.getElementById('selectedExamDutyFileInfo');
-            if (info) info.classList.add('hidden');
-            await loadInvigilations();
+            const res = await fetch('/api/invigilation/upload-ocr', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                showToast(data.message || '🎉 Exam schedule parsed and added to roster!');
+                document.getElementById('adminInvigUploadForm').reset();
+                const info = document.getElementById('selectedExamDutyFileInfo');
+                if (info) info.classList.add('hidden');
+                await loadInvigilations();
+                if (typeof loadSubstitutesForSelectedPeriod === 'function') {
+                    loadSubstitutesForSelectedPeriod();
+                }
+            } else {
+                showToast(data.error || 'Failed to parse exam duty sheet', 'error');
+            }
         } else {
-            const err = await res.json();
-            showToast(err.error || 'Failed to upload exam sheet', 'error');
+            // Direct manual entry
+            const res = await fetch('/api/invigilation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    exam_name: examName,
+                    exam_date: examDate,
+                    hall_no: hallNo,
+                    faculty_id: facultyId
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                showToast(data.message || 'Exam duty registered successfully!');
+                document.getElementById('adminInvigUploadForm').reset();
+                await loadInvigilations();
+                if (typeof loadSubstitutesForSelectedPeriod === 'function') {
+                    loadSubstitutesForSelectedPeriod();
+                }
+            } else {
+                showToast(data.error || 'Failed to add exam duty', 'error');
+            }
         }
     } catch (err) {
-        showToast('Error uploading exam sheet', 'error');
+        console.error("Error submitting exam duty:", err);
+        showToast('Error uploading exam duty sheet', 'error');
     }
 }
 
@@ -1213,6 +1265,9 @@ async function deleteInvigilationDuty(id) {
         if (res.ok) {
             showToast('Exam duty removed from roster.');
             await loadInvigilations();
+            if (typeof loadSubstitutesForSelectedPeriod === 'function') {
+                loadSubstitutesForSelectedPeriod();
+            }
         } else {
             const err = await res.json();
             showToast(err.error || 'Failed to delete duty', 'error');
@@ -1227,19 +1282,22 @@ async function clearCompletedExams() {
         showToast('Admin mode required to clear exam records.', 'error');
         return;
     }
-    if (!confirm('Are you sure you want to delete all past/finished exam invigilations from the roster?')) return;
+    if (!confirm('Are you sure you want to delete all exam invigilations from the roster?')) return;
 
     try {
-        const res = await fetch('/api/invigilation/clear-completed', { method: 'POST' });
+        const res = await fetch('/api/invigilation/clear-all', { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
-            showToast(data.message || 'Completed examinations cleared successfully.');
+            showToast(data.message || 'All examination records cleared.');
             await loadInvigilations();
+            if (typeof loadSubstitutesForSelectedPeriod === 'function') {
+                loadSubstitutesForSelectedPeriod();
+            }
         } else {
             showToast(data.error || 'Failed to clear past exams', 'error');
         }
     } catch (err) {
-        console.error("Error clearing completed exams:", err);
+        console.error("Error clearing exams:", err);
         showToast('Server error clearing exams', 'error');
     }
 }
@@ -1614,7 +1672,10 @@ async function savePersonalSchedule() {
             body: JSON.stringify({ scheduleGrid, user_id: uid })
         });
         if (res.ok) {
-            showToast('⚡ Timetable synced with n8n Automation Engine! Zero errors detected.');
+            showToast('💾 Personal timetable stored & synced with timetable! Live substitution availability updated.');
+            if (typeof loadSubstitutesForSelectedPeriod === 'function') {
+                loadSubstitutesForSelectedPeriod();
+            }
         } else {
             showToast('Failed to sync personal schedule', 'error');
         }
