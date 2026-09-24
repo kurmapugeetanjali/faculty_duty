@@ -363,7 +363,7 @@ router.post('/parse-master-image', requireHOS, upload.single('masterFile'), asyn
     }
 });
 
-// 6. GENERATE STANDARD PRESET GRID FOR BRANCH (Strictly semester-specific subjects)
+// 6. GENERATE STANDARD PRESET GRID FOR BRANCH (Strictly semester-specific subjects & accurate faculty)
 router.get('/preset-grid/:branchId', async (req, res) => {
     const branchId = parseInt(req.params.branchId, 10);
     if (!branchId) return res.status(400).json({ error: 'Valid branchId required' });
@@ -375,62 +375,177 @@ router.get('/preset-grid/:branchId', async (req, res) => {
 
         const dept = branch.department;
         const subRes = await pool.query('SELECT id, subject_code, subject_name, department FROM subjects WHERE department = $1 OR $1 = \'ALL\' ORDER BY id ASC', [dept]);
-        const facRes = await pool.query('SELECT id, faculty_id, full_name, designation, department FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
+        const facRes = await pool.query('SELECT id, faculty_id, full_name, designation, department, phone FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
 
-        // Filter strictly to this semester's subjects (e.g. CS-501 to CS-506 for 5th Sem)
+        // Filter strictly to this semester's subjects (e.g. CM-501 to CM-506 for 5th Sem)
         const subjects = getSemesterSubjectsForBranch(subRes.rows, branch);
         const faculty = facRes.rows;
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-        const grid = {};
-        let subIdx = 0;
+        // 1. Check if we already have live entries in the database for this branch
+        const existingRes = await pool.query(`
+            SELECT t.day, t.period, t.room, t.start_time, t.end_time,
+                   s.id AS subject_id, s.subject_code, s.subject_name,
+                   u.id AS faculty_id, u.full_name AS faculty_name, u.phone AS faculty_phone
+            FROM timetable t
+            JOIN subjects s ON t.subject_id = s.id
+            JOIN users u ON t.faculty_id = u.id
+            WHERE t.branch_id = $1
+            ORDER BY 
+              CASE t.day 
+                WHEN 'Monday' THEN 1 
+                WHEN 'Tuesday' THEN 2 
+                WHEN 'Wednesday' THEN 3 
+                WHEN 'Thursday' THEN 4 
+                WHEN 'Friday' THEN 5 
+                WHEN 'Saturday' THEN 6 
+              END, t.period ASC
+        `, [branchId]);
 
-        days.forEach((day, dIdx) => {
-            grid[day] = {};
+        const grid = {};
+        days.forEach(d => {
+            grid[d] = {};
             for (let p = 1; p <= 7; p++) {
-                if (p === 7 && dIdx % 2 === 1) {
-                    // Alternate Saturday/period 7 as sports / library / free
-                    grid[day][p] = {
-                        day,
-                        period: p,
-                        subject_id: null,
-                        subject_code: '',
-                        subject_name: 'Library / Sports / Free Slot',
-                        faculty_id: null,
-                        faculty_name: '',
-                        room: 'Campus Grounds',
-                        isFree: true
-                    };
-                } else if (subjects.length > 0 && faculty.length > 0) {
-                    const sub = subjects[subIdx % subjects.length];
-                    const fac = faculty[(dIdx + p - 1) % faculty.length];
-                    grid[day][p] = {
-                        day,
-                        period: p,
-                        subject_id: sub.id,
-                        subject_code: sub.subject_code,
-                        subject_name: sub.subject_name,
-                        faculty_id: fac.id,
-                        faculty_name: fac.full_name,
-                        room: `LH-${101 + (dIdx % 3)}`,
-                        isFree: false
-                    };
-                    subIdx++;
-                } else {
-                    grid[day][p] = {
-                        day,
-                        period: p,
-                        subject_id: null,
-                        subject_code: '',
-                        subject_name: 'Free Slot',
-                        faculty_id: null,
-                        faculty_name: '',
-                        room: 'LH-101',
-                        isFree: true
-                    };
-                }
+                grid[d][p] = {
+                    day: d,
+                    period: p,
+                    subject_id: null,
+                    subject_code: '',
+                    subject_name: 'Free Slot',
+                    faculty_id: null,
+                    faculty_name: '',
+                    room: `LH-${101 + (p % 3)}`,
+                    isFree: true
+                };
             }
         });
+
+        if (existingRes.rows.length > 0) {
+            existingRes.rows.forEach(r => {
+                if (grid[r.day] && grid[r.day][r.period]) {
+                    grid[r.day][r.period] = {
+                        day: r.day,
+                        period: r.period,
+                        subject_id: r.subject_id,
+                        subject_code: r.subject_code,
+                        subject_name: r.subject_name,
+                        faculty_id: r.faculty_id,
+                        faculty_name: r.faculty_name,
+                        room: r.room || `LH-${101 + (r.period % 3)}`,
+                        isFree: false
+                    };
+                }
+            });
+        } else if (branchId === 4 || branch.branch_name.includes('5th')) {
+            // Find exact faculty for 5th Sem
+            const gopalaFac = faculty.find(f => f.full_name.includes('Gopala')) || faculty[0];
+            const kishoreFac = faculty.find(f => f.full_name.includes('Kishore')) || faculty[0];
+            const anithaFac = faculty.find(f => f.full_name.includes('Anitha')) || faculty[0];
+            const raviFac = faculty.find(f => f.full_name.includes('Ravi')) || faculty[0];
+            const rameshFac = faculty.find(f => f.full_name.includes('Ramesh')) || faculty[0];
+
+            const sub501 = subjects.find(s => s.subject_code.includes('501')) || subjects[0];
+            const sub502 = subjects.find(s => s.subject_code.includes('502')) || subjects[1];
+            const sub503 = subjects.find(s => s.subject_code.includes('503')) || subjects[2];
+            const sub504 = subjects.find(s => s.subject_code.includes('504')) || subjects[3];
+            const sub505 = subjects.find(s => s.subject_code.includes('505')) || subjects[4];
+            const sub506 = subjects.find(s => s.subject_code.includes('506')) || subjects[5];
+
+            const setSlot = (d, p, sub, fac, room, isFree = false) => {
+                grid[d][p] = {
+                    day: d,
+                    period: p,
+                    subject_id: isFree ? null : (sub ? sub.id : null),
+                    subject_code: isFree ? '' : (sub ? sub.subject_code : ''),
+                    subject_name: isFree ? 'Free Slot' : (sub ? sub.subject_name : 'Class'),
+                    faculty_id: isFree ? null : (fac ? fac.id : null),
+                    faculty_name: isFree ? '' : (fac ? fac.full_name : 'Faculty'),
+                    room: room || 'LH-101',
+                    isFree: isFree
+                };
+            };
+
+            // Monday
+            setSlot('Monday', 1, sub504, kishoreFac, 'LH-101'); // PYTHON PROG
+            setSlot('Monday', 2, sub504, kishoreFac, 'LH-101'); // ANDROID PROG
+            setSlot('Monday', 3, sub503, anithaFac, 'LH-101');  // BD & CC
+            setSlot('Monday', 4, sub505, kishoreFac, 'Computer Lab'); // PYTHON PROG LAB
+            setSlot('Monday', 5, sub505, kishoreFac, 'Computer Lab'); // PYTHON PROG LAB
+            setSlot('Monday', 6, sub505, kishoreFac, 'Computer Lab'); // PYTHON PROG LAB
+            setSlot('Monday', 7, sub502, raviFac, 'LH-101');    // WT
+
+            // Tuesday
+            setSlot('Tuesday', 1, sub503, anithaFac, 'LH-101'); // BD & CC
+            setSlot('Tuesday', 2, sub504, kishoreFac, 'LH-101'); // IOT
+            setSlot('Tuesday', 3, sub503, anithaFac, 'LH-101');  // BD & CC
+            setSlot('Tuesday', 4, sub504, kishoreFac, 'LH-101'); // ANDROID PROG
+            setSlot('Tuesday', 5, sub504, kishoreFac, 'LH-101'); // PYTHON PROG
+            setSlot('Tuesday', 6, sub502, raviFac, 'LH-101');    // WT
+            setSlot('Tuesday', 7, sub501, gopalaFac, 'LH-101');  // IM&ED
+
+            // Wednesday
+            setSlot('Wednesday', 1, sub503, anithaFac, 'LH-101'); // BD & CC
+            setSlot('Wednesday', 2, sub504, kishoreFac, 'LH-101'); // PYTHON PROG
+            setSlot('Wednesday', 3, sub504, kishoreFac, 'LH-101'); // ANDROID PROG
+            setSlot('Wednesday', 4, sub502, raviFac, 'Web Lab');   // WT LAB
+            setSlot('Wednesday', 5, sub502, raviFac, 'Web Lab');   // WT LAB
+            setSlot('Wednesday', 6, sub502, raviFac, 'Web Lab');   // WT LAB
+            setSlot('Wednesday', 7, sub501, gopalaFac, 'LH-101');  // IM&ED
+
+            // Thursday
+            setSlot('Thursday', 1, sub501, gopalaFac, 'LH-101');  // IM&ED
+            setSlot('Thursday', 2, sub504, kishoreFac, 'LH-101'); // PYTHON PROG
+            setSlot('Thursday', 3, sub503, anithaFac, 'LH-101');  // BD & CC
+            setSlot('Thursday', 4, sub504, kishoreFac, 'LH-101'); // IOT
+            setSlot('Thursday', 5, sub504, kishoreFac, 'LH-101'); // ANDROID PROG
+            setSlot('Thursday', 6, null, null, 'Campus', true);   // Free
+            setSlot('Thursday', 7, sub502, raviFac, 'LH-101');    // WT
+
+            // Friday
+            setSlot('Friday', 1, sub501, gopalaFac, 'LH-101');  // IM&ED
+            setSlot('Friday', 2, sub502, raviFac, 'LH-101');    // WT
+            setSlot('Friday', 3, sub503, anithaFac, 'LH-101');  // BD & CC
+            setSlot('Friday', 4, sub504, kishoreFac, 'LH-101'); // PYTHON PROG
+            setSlot('Friday', 5, sub504, kishoreFac, 'LH-101'); // IOT
+            setSlot('Friday', 6, sub504, kishoreFac, 'LH-101'); // ANDROID PROG
+            setSlot('Friday', 7, sub501, gopalaFac, 'LH-101');  // IM&ED
+
+            // Saturday
+            setSlot('Saturday', 1, sub504, kishoreFac, 'LH-101'); // IOT
+            setSlot('Saturday', 2, sub504, kishoreFac, 'LH-101'); // IOT
+            setSlot('Saturday', 3, sub504, kishoreFac, 'LH-101'); // ANDROID PROG
+            setSlot('Saturday', 4, sub504, kishoreFac, 'LH-101'); // ANDROID PROG
+            setSlot('Saturday', 5, sub505, kishoreFac, 'Computer Lab'); // PYTHON PROG LAB
+            setSlot('Saturday', 6, sub505, kishoreFac, 'Computer Lab'); // PYTHON PROG LAB
+            setSlot('Saturday', 7, sub505, kishoreFac, 'Computer Lab'); // PYTHON PROG LAB
+        } else {
+            // General semester fallback: 1 subject -> 1 dedicated teacher
+            const subjectFacultyMap = {};
+            subjects.forEach((sub, idx) => {
+                subjectFacultyMap[sub.id] = faculty[idx % Math.max(1, faculty.length)];
+            });
+
+            let subIdx = 0;
+            days.forEach((day, dIdx) => {
+                for (let p = 1; p <= 7; p++) {
+                    if (p === 6 && dIdx === 3) {
+                        // Free Period
+                        grid[day][p] = {
+                            day, period: p, subject_id: null, subject_code: '', subject_name: 'Library / Sports / Free Slot',
+                            faculty_id: null, faculty_name: '', room: 'Campus', isFree: true
+                        };
+                    } else if (subjects.length > 0) {
+                        const sub = subjects[subIdx % subjects.length];
+                        const fac = subjectFacultyMap[sub.id] || faculty[0];
+                        grid[day][p] = {
+                            day, period: p, subject_id: sub.id, subject_code: sub.subject_code, subject_name: sub.subject_name,
+                            faculty_id: fac.id, faculty_name: fac.full_name, room: `LH-${101 + (dIdx % 3)}`, isFree: false
+                        };
+                        subIdx++;
+                    }
+                }
+            });
+        }
 
         res.json({
             success: true,
