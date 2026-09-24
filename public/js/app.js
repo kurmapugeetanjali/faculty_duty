@@ -111,36 +111,39 @@ async function checkSession() {
         if (res.ok) {
             currentUser = await res.json();
             isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD;
-            
+            if (currentUser.department) {
+                currentDepartment = currentUser.department;
+            }
+            localStorage.setItem('facultyduty_user', JSON.stringify(currentUser));
+
             // Show Authenticated App, Hide Login Gate
             if (loginView) loginView.classList.add('hidden');
             if (appContainer) appContainer.classList.remove('hidden');
             
             renderUserSession();
+            renderBranchUI();
             return;
         }
 
         // Check local storage backup
         const storedUser = localStorage.getItem('facultyduty_user');
         if (storedUser) {
-            const parsed = JSON.parse(storedUser);
-            // Verify with fast re-login
-            const reRes = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ faculty_id: parsed.faculty_id || parsed.full_name, password: 'password123' })
-            });
-            if (reRes.ok) {
-                const data = await reRes.json();
-                currentUser = data.user;
-                isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD;
-                
-                // Show Authenticated App, Hide Login Gate
-                if (loginView) loginView.classList.add('hidden');
-                if (appContainer) appContainer.classList.remove('hidden');
-                
-                renderUserSession();
-                return;
+            try {
+                const parsed = JSON.parse(storedUser);
+                if (parsed && parsed.full_name) {
+                    currentUser = parsed;
+                    isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD;
+                    if (currentUser.department) {
+                        currentDepartment = currentUser.department;
+                    }
+                    if (loginView) loginView.classList.add('hidden');
+                    if (appContainer) appContainer.classList.remove('hidden');
+                    renderUserSession();
+                    renderBranchUI();
+                    return;
+                }
+            } catch (e) {
+                localStorage.removeItem('facultyduty_user');
             }
         }
 
@@ -162,12 +165,20 @@ function validatePasswordPolicyClient(pass) {
 }
 
 async function submitManualLogin(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     const rawInput = document.getElementById('manualFacultyIdInput').value.trim();
     const password = document.getElementById('manualPasswordInput').value;
     const errorDiv = document.getElementById('loginErrorMessage');
     const loginView = document.getElementById('loginScreenView');
     const appContainer = document.getElementById('authenticatedAppContainer');
+
+    if (!rawInput) {
+        if (errorDiv) {
+            errorDiv.innerText = 'Please enter your Name or Faculty ID.';
+            errorDiv.classList.remove('hidden');
+        }
+        return;
+    }
 
     // Validate Password Security Policy
     const clientPolicyErr = validatePasswordPolicyClient(password);
@@ -189,6 +200,9 @@ async function submitManualLogin(e) {
         if (res.ok) {
             currentUser = data.user;
             isAdminMode = !!currentUser.isAdminElevated || !!currentUser.isHOD;
+            if (currentUser.department) {
+                currentDepartment = currentUser.department;
+            }
             localStorage.setItem('facultyduty_user', JSON.stringify(currentUser));
             
             // Hide Login Gate, Reveal the full Website App
@@ -197,13 +211,10 @@ async function submitManualLogin(e) {
             if (errorDiv) errorDiv.classList.add('hidden');
 
             renderUserSession();
+            renderBranchUI();
+
             const welcomeRole = (currentUser.isHOD || currentUser.role === 'hos') ? ` (HOD ${currentUser.department || ''} / Admin)` : '';
             showToast(`Welcome, ${currentUser.full_name}${welcomeRole}!`);
-            
-            if (currentUser.department) {
-                currentDepartment = currentUser.department;
-                renderBranchUI();
-            }
 
             await loadTimetable(currentBranchId);
             await loadInvigilations();

@@ -6,6 +6,9 @@ const db = require('./database/database'); // Initializes Postgres DB
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for Cloudflare, tunnels and reverse proxies
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -16,7 +19,11 @@ app.use(session({
     secret: 'super_secret_faculty_scheduler_key_2026',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 day
+    cookie: { 
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        httpOnly: true,
+        sameSite: 'lax'
+    }
 }));
 
 // Routes
