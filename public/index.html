@@ -1437,6 +1437,49 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: BLURRY / UNREADABLE TIMETABLE IMAGE ALERT ================= -->
+  <div id="blurryImageAlertModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border-2 border-amber-300 transform transition-all">
+      <div class="flex items-start gap-3.5">
+        <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center font-black text-2xl flex-shrink-0 shadow-inner">
+          ⚠️
+        </div>
+        <div class="space-y-1">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-200 text-amber-900 border border-amber-400">
+            Image Quality Notice
+          </span>
+          <h3 class="text-base sm:text-lg font-black text-slate-900">
+            Timetable is Not Understandable / Blurry
+          </h3>
+          <p id="blurryModalMessage" class="text-xs text-slate-600 font-medium leading-relaxed">
+            The system could not clearly read the timetable periods from the uploaded picture. The photo may be blurry, poorly lit, or taken at an angle.
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-amber-50/80 rounded-2xl p-3.5 border border-amber-200 text-xs text-amber-950 space-y-1.5 font-medium">
+        <div class="font-bold flex items-center gap-1.5">
+          <span>💡 <strong>Recommended Solutions:</strong></span>
+        </div>
+        <ul class="list-disc pl-4 space-y-1 text-[11px] text-slate-700">
+          <li>Retake a steady, well-lit photo of the timetable document directly from above.</li>
+          <li>Upload an original PDF or clear scanned image.</li>
+          <li>Or directly customize the 7-period matrix for this semester using the manual edit table below.</li>
+        </ul>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+        <button type="button" onclick="continueWithManualEditAfterBlur()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition">
+          ✍️ Direct Manual Edit
+        </button>
+        <button type="button" onclick="retakeMasterPhoto()" class="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 shadow-md flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="camera" class="w-4 h-4"></i>
+          <span>📸 Retake / Choose Clearer Photo</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MODAL: ADD PERIOD (ADMIN ONLY - PERIODS 1 TO 7) ================= -->
   <div id="addPeriodModal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">

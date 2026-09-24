@@ -35,26 +35,43 @@ router.get('/branches', async (req, res) => {
     }
 });
 
-// Get meta options (subjects and faculty) filtered by department
+const { getSemesterSubjectsForBranch } = require('../services/timetableOcr');
+
+// Get meta options (subjects and faculty) filtered by department and branch/semester
 router.get('/meta/options', async (req, res) => {
-    const { department } = req.query;
-    const dept = (department || 'CSE').toUpperCase();
+    const { department, branch_id } = req.query;
+    let dept = (department || 'CSE').toUpperCase();
+    let targetBranch = null;
+
     try {
+        if (branch_id) {
+            const bRes = await pool.query('SELECT * FROM branches WHERE id = $1', [parseInt(branch_id, 10)]);
+            if (bRes.rows.length > 0) {
+                targetBranch = bRes.rows[0];
+                dept = targetBranch.department;
+            }
+        }
+
         const subjectsRes = await pool.query(
-            `SELECT id, subject_code, subject_name FROM subjects 
-             WHERE department = $1 
+            `SELECT id, subject_code, subject_name, department FROM subjects 
+             WHERE department = $1 OR $1 = 'ALL'
              ORDER BY subject_code ASC`,
             [dept]
         );
         const facultyRes = await pool.query(
             `SELECT id, faculty_id, full_name, designation, phone FROM users 
              WHERE (role = 'faculty' OR role = 'hos') 
-             AND department = $1 
+             AND (department = $1 OR $1 = 'ALL')
              ORDER BY full_name ASC`,
             [dept]
         );
+
+        const filteredSubjects = targetBranch 
+            ? getSemesterSubjectsForBranch(subjectsRes.rows, targetBranch)
+            : subjectsRes.rows;
+
         res.json({
-            subjects: subjectsRes.rows,
+            subjects: filteredSubjects,
             faculty: facultyRes.rows
         });
     } catch (err) {

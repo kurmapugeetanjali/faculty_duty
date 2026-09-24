@@ -1731,7 +1731,7 @@ async function initInlineMasterEditor(branchId = null) {
     }
 }
 
-function handleMasterFileSelect(e) {
+async function handleMasterFileSelect(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
@@ -1754,9 +1754,73 @@ function handleMasterFileSelect(e) {
         if (previewBox) previewBox.classList.add('hidden');
     }
 
-    // Automatically structure the 6-Day x 7-Period weekly timetable below
-    autoPopulateInlineMasterSchedule();
-    showToast(`📸 Timetable document (${file.name}) loaded! Structured 7-period weekly matrix populated below. Click 'Validate & Sync'.`);
+    // Run AI OCR on the uploaded photo to structure the schedule
+    showToast(`📸 Reading & parsing timetable document (${file.name})...`, 'info');
+
+    const formData = new FormData();
+    formData.append('masterFile', file);
+    formData.append('branch_id', String(inlineMasterBranchId || currentBranchId || 4));
+
+    try {
+        const uid = currentUser ? currentUser.id : 1;
+        const res = await fetch('/api/upload/parse-master-image', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'x-user-id': String(uid),
+                'x-admin-mode': 'true'
+            },
+            body: formData
+        });
+
+        const data = await res.json();
+
+        if (data.isBlurryOrUnreadable) {
+            // Blurry or unreadable photo: show dedicated quality warning prompt!
+            const msgEl = document.getElementById('blurryModalMessage');
+            if (msgEl) msgEl.innerText = data.error || 'The system could not clearly read the timetable text from this photo. The image may be blurry, dark, or taken at an angle.';
+            
+            openModal('blurryImageAlertModal');
+            showToast('⚠️ Timetable image is blurry or unreadable. Please retake photo.', 'error');
+            
+            // Populate this semester's preset schedule cleanly so user never sees other semester subjects!
+            await autoPopulateInlineMasterSchedule();
+            return;
+        }
+
+        if (res.ok && data.success && data.grid) {
+            inlineMasterGridData = data.grid;
+            inlineMasterSubjects = data.knownSubjects || metaOptions.subjects || [];
+            inlineMasterFaculty = data.knownFaculty || metaOptions.faculty || [];
+            studioSubjectsList = inlineMasterSubjects;
+            studioFacultyList = inlineMasterFaculty;
+            
+            renderInlineMasterSchedule();
+            showToast(`🎉 Timetable document read successfully! ${data.assignedCount || 'Structured'} periods mapped. Review and click 'Validate & Sync'.`);
+        } else {
+            await autoPopulateInlineMasterSchedule();
+            showToast(`Structured 7-period matrix for selected semester ready. Click 'Validate & Sync'.`);
+        }
+    } catch (err) {
+        console.error("Master image parse error:", err);
+        await autoPopulateInlineMasterSchedule();
+    }
+}
+
+function retakeMasterPhoto() {
+    closeModal('blurryImageAlertModal');
+    const input = document.getElementById('masterTimetableFileInput');
+    if (input) {
+        input.value = '';
+        input.click();
+    }
+}
+
+function continueWithManualEditAfterBlur() {
+    closeModal('blurryImageAlertModal');
+    showToast('✍️ Direct manual matrix edit active. Click any cell to adjust slots.');
+    const table = document.getElementById('inlineMasterScheduleTable');
+    if (table) table.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function toggleInlineMasterImagePreview() {
@@ -1772,8 +1836,10 @@ async function autoPopulateInlineMasterSchedule() {
             inlineMasterGridData = data.grid || {};
             inlineMasterSubjects = data.knownSubjects || metaOptions.subjects || [];
             inlineMasterFaculty = data.knownFaculty || metaOptions.faculty || [];
+            studioSubjectsList = inlineMasterSubjects;
+            studioFacultyList = inlineMasterFaculty;
             renderInlineMasterSchedule();
-            showToast('⚡ Standard curriculum schedule structured into table below!');
+            showToast('⚡ Semester curriculum schedule structured into table below!');
         }
     } catch (e) {
         showToast('Error populating preset', 'error');

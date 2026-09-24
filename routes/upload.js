@@ -264,9 +264,9 @@ router.get('/personal-schedule', requireAuth, async (req, res) => {
     }
 });
 
-const { parseTimetableImage } = require('../services/timetableOcr');
+const { parseTimetableImage, getSemesterSubjectsForBranch } = require('../services/timetableOcr');
 
-// 5. PARSE MASTER TIMETABLE IMAGE WITH OCR (Returns Preview & Grid for Studio Verification)
+// 5. PARSE MASTER TIMETABLE IMAGE WITH OCR (Returns Preview & Grid for Verification)
 router.post('/parse-master-image', requireHOS, upload.single('masterFile'), async (req, res) => {
     const { branch_id } = req.body;
     const branchId = parseInt(branch_id, 10);
@@ -285,8 +285,12 @@ router.post('/parse-master-image', requireHOS, upload.single('masterFile'), asyn
         const subRes = await pool.query('SELECT id, subject_code, subject_name, department FROM subjects WHERE department = $1 OR $1 = \'ALL\' ORDER BY id ASC', [dept]);
         const facRes = await pool.query('SELECT id, faculty_id, full_name, designation, department FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
 
+        // STRICTLY filter subjects to this specific branch/semester only!
+        const semesterSubjects = getSemesterSubjectsForBranch(subRes.rows, branch);
+
         let ocrData = {
             success: true,
+            isBlurryOrUnreadable: false,
             extractedText: '',
             detectedTokens: [],
             grid: {},
@@ -296,16 +300,32 @@ router.post('/parse-master-image', requireHOS, upload.single('masterFile'), asyn
         let fileUrl = null;
 
         if (req.file) {
-            console.log(`[Master Upload] Running OCR on: ${req.file.originalname}`);
+            console.log(`[Master Upload] Running OCR on: ${req.file.originalname} for branch: ${branch.branch_name}`);
             fileUrl = `/uploads/${req.file.filename}`;
             const ocrResult = await parseTimetableImage(req.file.path, dept, branchId);
-            if (ocrResult.success) {
-                ocrData = ocrResult;
-            }
+            ocrData = ocrResult;
+        }
+
+        if (ocrData.isBlurryOrUnreadable) {
+            return res.json({
+                success: false,
+                isBlurryOrUnreadable: true,
+                error: ocrData.error || '⚠️ Timetable image is blurry or not understandable. Please retake a clear photo or upload a sharp image/PDF.',
+                fileUrl: fileUrl,
+                fileName: req.file ? req.file.originalname : 'Document',
+                branch: branch,
+                extractedText: ocrData.extractedText || '',
+                detectedTokens: [],
+                grid: null,
+                assignedCount: 0,
+                knownSubjects: semesterSubjects,
+                knownFaculty: facRes.rows
+            });
         }
 
         res.json({
             success: true,
+            isBlurryOrUnreadable: false,
             fileUrl: fileUrl,
             fileName: req.file ? req.file.originalname : 'Document',
             branch: branch,
@@ -313,7 +333,7 @@ router.post('/parse-master-image', requireHOS, upload.single('masterFile'), asyn
             detectedTokens: ocrData.detectedTokens || [],
             grid: ocrData.grid || null,
             assignedCount: ocrData.assignedCount || 0,
-            knownSubjects: subRes.rows,
+            knownSubjects: semesterSubjects,
             knownFaculty: facRes.rows
         });
     } catch (err) {
@@ -322,7 +342,7 @@ router.post('/parse-master-image', requireHOS, upload.single('masterFile'), asyn
     }
 });
 
-// 6. GENERATE STANDARD PRESET GRID FOR BRANCH
+// 6. GENERATE STANDARD PRESET GRID FOR BRANCH (Strictly semester-specific subjects)
 router.get('/preset-grid/:branchId', async (req, res) => {
     const branchId = parseInt(req.params.branchId, 10);
     if (!branchId) return res.status(400).json({ error: 'Valid branchId required' });
@@ -336,7 +356,8 @@ router.get('/preset-grid/:branchId', async (req, res) => {
         const subRes = await pool.query('SELECT id, subject_code, subject_name, department FROM subjects WHERE department = $1 OR $1 = \'ALL\' ORDER BY id ASC', [dept]);
         const facRes = await pool.query('SELECT id, faculty_id, full_name, designation, department FROM users WHERE (department = $1 OR $1 = \'ALL\') AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
 
-        const subjects = subRes.rows;
+        // Filter strictly to this semester's subjects (e.g. CS-501 to CS-506 for 5th Sem)
+        const subjects = getSemesterSubjectsForBranch(subRes.rows, branch);
         const faculty = facRes.rows;
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -487,7 +508,7 @@ router.post('/save-master-grid', requireHOS, async (req, res) => {
     }
 });
 
-// 8. LEGACY DIRECT UPLOAD / OCR-PARSE MASTER TIMETABLE (Photo / PDF / CSV / JSON)
+// 8. MASTER TIMETABLE IMAGE OCR & DIRECT PUBLISH
 router.post('/master-file', requireHOS, upload.single('masterFile'), async (req, res) => {
     const { branch_id } = req.body;
     const branchId = parseInt(branch_id, 10);
@@ -505,27 +526,39 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
         let extractedText = '';
 
         if (req.file) {
-            console.log(`[Master Upload] Processing image/PDF with OCR: ${req.file.originalname}`);
+            console.log(`[Master Upload] Processing image/PDF with OCR: ${req.file.originalname} for branch: ${branch.branch_name}`);
             const ocrResult = await parseTimetableImage(req.file.path, dept, branchId);
+            
+            if (ocrResult.isBlurryOrUnreadable) {
+                return res.status(400).json({
+                    success: false,
+                    isBlurryOrUnreadable: true,
+                    error: ocrResult.error || '⚠️ Timetable image is blurry or not understandable. Please retake a clear photo or upload a sharp image/PDF.',
+                    extractedText: ocrResult.extractedText
+                });
+            }
+
             if (ocrResult.success && ocrResult.entries.length > 0) {
                 parsedEntries = ocrResult.entries;
                 extractedText = ocrResult.extractedText;
             }
         }
 
-        // If no file uploaded or 0 OCR entries found, populate default curriculum schedule
+        // If no file was uploaded, generate standard schedule strictly for THIS semester
         if (parsedEntries.length === 0) {
             const subRes = await pool.query('SELECT * FROM subjects WHERE department = $1 ORDER BY id ASC', [dept]);
             const facRes = await pool.query('SELECT * FROM users WHERE department = $1 AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
-            const subjects = subRes.rows;
+            const subjects = getSemesterSubjectsForBranch(subRes.rows, branch);
             const faculty = facRes.rows;
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
             if (subjects.length > 0 && faculty.length > 0) {
+                let sIdx = 0;
                 for (let d = 0; d < days.length; d++) {
                     const day = days[d];
-                    for (let p = 1; p <= 6; p++) {
-                        const sub = subjects[(d * 6 + p - 1) % subjects.length];
+                    for (let p = 1; p <= 7; p++) {
+                        if (p === 7 && d % 2 === 1) continue;
+                        const sub = subjects[sIdx % subjects.length];
                         const fac = faculty[(d + p - 1) % faculty.length];
                         parsedEntries.push({
                             day,
@@ -536,6 +569,7 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
                             faculty_id: fac.id,
                             room: `LH-${101 + (d % 3)}`
                         });
+                        sIdx++;
                     }
                 }
             }
@@ -572,7 +606,7 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
             res.json({
                 success: true,
                 message: req.file 
-                    ? `📷 Timetable image (${req.file.originalname}) read and converted into ${count} structured class periods for ${branch.branch_name}!`
+                    ? `📷 Timetable document (${req.file.originalname}) read and structured into ${count} class periods for ${branch.branch_name}!`
                     : `⚡ Master timetable generated with ${count} periods for ${branch.branch_name}!`,
                 count: count,
                 branch: branch,
