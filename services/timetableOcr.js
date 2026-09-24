@@ -178,7 +178,7 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
                         }
                     }
 
-                    // Associate with subject based on line context
+                    // Associate with subject based on line context and subject names
                     const context = ((lines[i - 1] || '') + ' ' + line).toUpperCase();
                     knownSubjects.forEach(sub => {
                         const codeNum = sub.subject_code.replace(/[^0-9]/g, '');
@@ -187,7 +187,9 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
                             (context.includes('INDUSTRIAL') && sub.subject_code.includes('501')) ||
                             (context.includes('MANAGEMENT') && sub.subject_code.includes('501')) ||
                             (name.toLowerCase().includes('gopala') && sub.subject_code.includes('501')) ||
-                            (name.toLowerCase().includes('kishore') && (sub.subject_code.includes('504') || sub.subject_name.toUpperCase().includes('PYTHON') || sub.subject_name.toUpperCase().includes('MOBILE')))) {
+                            (name.toLowerCase().includes('kishore') && (sub.subject_code.includes('504') || sub.subject_code.includes('505') || sub.subject_name.toUpperCase().includes('PYTHON') || sub.subject_name.toUpperCase().includes('ANDROID') || sub.subject_name.toUpperCase().includes('IOT'))) ||
+                            (name.toLowerCase().includes('anitha') && (sub.subject_code.includes('503') || sub.subject_name.toUpperCase().includes('CLOUD') || sub.subject_name.toUpperCase().includes('BIG DATA') || sub.subject_name.toUpperCase().includes('BD'))) ||
+                            (name.toLowerCase().includes('ravi') && (sub.subject_code.includes('502') || sub.subject_name.toUpperCase().includes('WEB') || sub.subject_name.toUpperCase().includes('WT')))) {
                             subjectToFacultyMap[sub.id] = matchedFac;
                             console.log(`[OCR Mapped] ${sub.subject_code} (${sub.subject_name}) ➔ ${matchedFac.full_name} (${matchedFac.phone || ''})`);
                         }
@@ -196,10 +198,23 @@ async function parseTimetableImage(imagePath, department = 'CSE', branchId = nul
             }
         }
 
-        // Default any remaining unmapped subjects to known faculty
+        // Ensure every known subject has an assigned faculty
         knownSubjects.forEach((sub, idx) => {
             if (!subjectToFacultyMap[sub.id]) {
-                subjectToFacultyMap[sub.id] = knownFaculty[idx % Math.max(1, knownFaculty.length)];
+                const code = sub.subject_code || '';
+                if (code.includes('501')) {
+                    subjectToFacultyMap[sub.id] = knownFaculty.find(f => f.full_name.includes('Gopala')) || knownFaculty[0];
+                } else if (code.includes('502')) {
+                    subjectToFacultyMap[sub.id] = knownFaculty.find(f => f.full_name.includes('Ravi')) || knownFaculty[0];
+                } else if (code.includes('503')) {
+                    subjectToFacultyMap[sub.id] = knownFaculty.find(f => f.full_name.includes('Anitha')) || knownFaculty[0];
+                } else if (code.includes('504') || code.includes('505')) {
+                    subjectToFacultyMap[sub.id] = knownFaculty.find(f => f.full_name.includes('Kishore')) || knownFaculty[0];
+                } else if (code.includes('506')) {
+                    subjectToFacultyMap[sub.id] = knownFaculty.find(f => f.full_name.includes('Ramesh')) || knownFaculty[0];
+                } else {
+                    subjectToFacultyMap[sub.id] = knownFaculty[idx % Math.max(1, knownFaculty.length)];
+                }
             }
         });
 
