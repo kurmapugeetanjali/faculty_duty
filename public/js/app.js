@@ -1105,32 +1105,6 @@ async function loadInvigilations() {
     }
 }
 
-        tbody.innerHTML = exams.map(e => `
-            <tr class="hover:bg-amber-50/60 transition">
-                <td class="p-3 font-bold text-amber-950">CSE</td>
-                <td class="p-3 font-extrabold text-slate-900">${e.exam_name}</td>
-                <td class="p-3 font-semibold text-slate-600">${e.exam_date}</td>
-                <td class="p-3 font-extrabold text-indigo-700">${e.faculty_name || 'Unassigned'}</td>
-                <td class="p-3 font-bold text-slate-800">${e.hall_no || 'Assigned Hall'}</td>
-                <td class="p-3 font-medium text-slate-700 font-code">
-                    ${e.faculty_phone ? `<a href="tel:${e.faculty_phone}" class="hover:underline text-indigo-600 font-bold">${e.faculty_phone}</a>` : '---'}
-                </td>
-                <td class="p-3 text-right">
-                    ${isAdminMode ? `
-                        <button onclick="deleteInvigilationDuty(${e.id})" class="text-red-500 hover:text-red-700 font-black text-xs px-2 py-1 rounded bg-red-50 border border-red-200 hover:bg-red-100 transition">
-                            🗑️ Delete
-                        </button>
-                    ` : `
-                        <span class="text-xs text-slate-400">View Only</span>
-                    `}
-                </td>
-            </tr>
-        `).join('');
-    } catch (e) {
-        console.error("Error loading invigilations:", e);
-    }
-}
-
 function handleExamDutyFileSelect(e) {
     const file = e.target.files && e.target.files[0];
     const info = document.getElementById('selectedExamDutyFileInfo');

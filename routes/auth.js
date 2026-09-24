@@ -220,21 +220,12 @@ router.post('/login', async (req, res) => {
                 }
             }
 
-            // Check single active admin lock if user has HOD role
-            let isAdminElevated = false;
-            if (isHOD) {
-                if (currentActiveAdmin && currentActiveAdmin.userId !== user.id) {
-                    console.log(`[Admin Lock] ${user.full_name} logged in, but ${currentActiveAdmin.full_name} currently holds active Admin lock.`);
-                    isAdminElevated = false;
-                } else {
-                    isAdminElevated = true;
-                    setActiveAdmin(user, user.email);
-                }
-            }
+            const isAdminElevated = isHOD;
+            setActiveAdmin(user, user.email);
 
             req.session.userId = user.id;
             req.session.faculty_id = user.faculty_id;
-            req.session.role = isAdminElevated ? 'hos' : 'faculty';
+            req.session.role = isHOD ? 'hos' : 'faculty';
             req.session.full_name = user.full_name;
             req.session.phone = user.phone;
             req.session.designation = user.designation;
@@ -243,10 +234,7 @@ router.post('/login', async (req, res) => {
             req.session.isAdminElevated = isAdminElevated;
 
             return res.json({
-                message: isHOD && !isAdminElevated 
-                    ? `Logged in. Note: Admin access is currently locked by ${currentActiveAdmin.full_name}. You have faculty access.`
-                    : 'Login successful',
-                adminLockNotice: isHOD && !isAdminElevated ? `Admin locked by ${currentActiveAdmin.full_name}` : null,
+                message: 'Login successful',
                 user: {
                     id: user.id,
                     faculty_id: user.faculty_id,
@@ -411,14 +399,14 @@ router.get('/me', (req, res) => {
         return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const isCurrentActiveAdmin = currentActiveAdmin && currentActiveAdmin.userId === req.session.userId;
-    const isElevated = !!req.session.isAdminElevated && isCurrentActiveAdmin;
+    const isElevated = !!req.session.isAdminElevated || !!req.session.isHOD || req.session.role === 'hos';
 
     res.json({
         id: req.session.userId,
         faculty_id: req.session.faculty_id,
         role: isElevated ? 'hos' : req.session.role,
         full_name: req.session.full_name,
+        phone: req.session.phone || '+91 98480 11223',
         designation: req.session.designation,
         department: req.session.department,
         isHOD: !!req.session.isHOD || isElevated,
@@ -426,7 +414,7 @@ router.get('/me', (req, res) => {
         activeAdminInfo: currentActiveAdmin ? {
             name: currentActiveAdmin.full_name,
             userId: currentActiveAdmin.userId,
-            isSelf: isCurrentActiveAdmin
+            isSelf: currentActiveAdmin.userId === req.session.userId
         } : null
     });
 });
