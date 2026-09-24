@@ -98,14 +98,25 @@ function quickFillLogin(nameOrId) {
     const input = document.getElementById('manualFacultyIdInput');
     const pass = document.getElementById('manualPasswordInput');
     if (input) input.value = nameOrId;
-    if (pass) pass.value = 'password123';
+    if (pass) pass.value = 'Fast@2026';
 }
 
-// ================= AUTHENTICATION & STRICT LOGIN-FIRST GATE =================
-async function checkSession() {
-    const loginView = document.getElementById('loginScreenView');
-    const appContainer = document.getElementById('authenticatedAppContainer');
+function openLoginModal() {
+    const errorDiv = document.getElementById('loginErrorMessage');
+    if (errorDiv) errorDiv.classList.add('hidden');
+    openModal('loginModal');
+}
 
+async function quickDemoLogin(identifier) {
+    const input = document.getElementById('manualFacultyIdInput');
+    const pass = document.getElementById('manualPasswordInput');
+    if (input) input.value = identifier;
+    if (pass) pass.value = 'Fast@2026';
+    await submitManualLogin();
+}
+
+// ================= AUTHENTICATION & SESSION MANAGEMENT =================
+async function checkSession() {
     try {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
@@ -115,11 +126,6 @@ async function checkSession() {
                 currentDepartment = currentUser.department;
             }
             localStorage.setItem('facultyduty_user', JSON.stringify(currentUser));
-
-            // Show Authenticated App, Hide Login Gate
-            if (loginView) loginView.classList.add('hidden');
-            if (appContainer) appContainer.classList.remove('hidden');
-            
             renderUserSession();
             renderBranchUI();
             return;
@@ -136,8 +142,6 @@ async function checkSession() {
                     if (currentUser.department) {
                         currentDepartment = currentUser.department;
                     }
-                    if (loginView) loginView.classList.add('hidden');
-                    if (appContainer) appContainer.classList.remove('hidden');
                     renderUserSession();
                     renderBranchUI();
                     return;
@@ -147,44 +151,29 @@ async function checkSession() {
             }
         }
 
-        // Not logged in -> Show Login Gate first, keep entire app hidden
-        if (loginView) loginView.classList.remove('hidden');
-        if (appContainer) appContainer.classList.add('hidden');
+        // Not logged in -> Normal Guest browsing mode (Entire site stays 100% visible & accessible!)
+        currentUser = null;
+        isAdminMode = false;
+        renderUserSession();
+        renderBranchUI();
     } catch (e) {
         console.error("Auth check failed:", e);
-        if (loginView) loginView.classList.remove('hidden');
-        if (appContainer) appContainer.classList.add('hidden');
+        currentUser = null;
+        isAdminMode = false;
+        renderUserSession();
+        renderBranchUI();
     }
-}
-
-function validatePasswordPolicyClient(pass) {
-    if (!pass || pass.trim().length === 0) return 'Password is required.';
-    if (!/[A-Z]/.test(pass)) return 'Password must contain at least one uppercase letter (A-Z).';
-    if (!/[!@#$%^&*(),.?":{}|<>\-_+=\[\]\\;/~`]/.test(pass)) return 'Password must contain at least one special character (e.g. @, #, $, !).';
-    return null;
 }
 
 async function submitManualLogin(e) {
     if (e) e.preventDefault();
-    const rawInput = document.getElementById('manualFacultyIdInput').value.trim();
-    const password = document.getElementById('manualPasswordInput').value;
+    const rawInput = (document.getElementById('manualFacultyIdInput')?.value || '').trim();
+    const password = document.getElementById('manualPasswordInput')?.value || 'Fast@2026';
     const errorDiv = document.getElementById('loginErrorMessage');
-    const loginView = document.getElementById('loginScreenView');
-    const appContainer = document.getElementById('authenticatedAppContainer');
 
     if (!rawInput) {
         if (errorDiv) {
             errorDiv.innerText = 'Please enter your Name or Faculty ID.';
-            errorDiv.classList.remove('hidden');
-        }
-        return;
-    }
-
-    // Validate Password Security Policy
-    const clientPolicyErr = validatePasswordPolicyClient(password);
-    if (clientPolicyErr) {
-        if (errorDiv) {
-            errorDiv.innerText = `Security Policy: ${clientPolicyErr} (Must contain at least 1 uppercase letter and 1 special character).`;
             errorDiv.classList.remove('hidden');
         }
         return;
@@ -205,9 +194,8 @@ async function submitManualLogin(e) {
             }
             localStorage.setItem('facultyduty_user', JSON.stringify(currentUser));
             
-            // Hide Login Gate, Reveal the full Website App
-            if (loginView) loginView.classList.add('hidden');
-            if (appContainer) appContainer.classList.remove('hidden');
+            // Close login modal
+            closeModal('loginModal');
             if (errorDiv) errorDiv.classList.add('hidden');
 
             renderUserSession();
@@ -228,10 +216,23 @@ async function submitManualLogin(e) {
         }
     } catch (err) {
         if (errorDiv) {
-            errorDiv.innerText = 'Login server error';
+            errorDiv.innerText = 'Login server connection error';
             errorDiv.classList.remove('hidden');
         }
     }
+}
+
+async function logout() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+        console.warn("Logout error:", e);
+    }
+    currentUser = null;
+    isAdminMode = false;
+    localStorage.removeItem('facultyduty_user');
+    renderUserSession();
+    showToast('Logged out successfully.');
 }
 
 function renderUserSession() {
