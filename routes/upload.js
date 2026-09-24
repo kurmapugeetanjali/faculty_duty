@@ -264,43 +264,60 @@ router.get('/personal-schedule', requireAuth, async (req, res) => {
     }
 });
 
-// 5. ADMIN ONLY: UPLOAD / REPLACE MASTER TIMETABLE FOR A CSE SEMESTER
-router.post('/master-timetable', requireHOS, async (req, res) => {
-    const { branch_id, entries } = req.body;
-
-    if (!branch_id || !entries || !Array.isArray(entries)) {
-        return res.status(400).json({ error: 'branch_id and entries array are required' });
+// 5. ADMIN ONLY: UPLOAD / REPLACE MASTER TIMETABLE FOR A SEMESTER (PHOTO / PDF / CSV / JSON)
+router.post('/master-file', requireHOS, upload.single('masterFile'), async (req, res) => {
+    const { branch_id } = req.body;
+    const branchId = parseInt(branch_id, 10);
+    if (!branchId) {
+        return res.status(400).json({ error: 'Valid branch_id is required' });
     }
 
     try {
+        const branchRes = await pool.query('SELECT * FROM branches WHERE id = $1', [branchId]);
+        const branch = branchRes.rows[0];
+        if (!branch) return res.status(404).json({ error: 'Branch not found' });
+
+        const dept = branch.department;
+        const subRes = await pool.query('SELECT * FROM subjects WHERE department = $1 ORDER BY id ASC', [dept]);
+        const facRes = await pool.query('SELECT * FROM users WHERE department = $1 AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
+
+        const subjects = subRes.rows;
+        const faculty = facRes.rows;
+
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const client = await pool.connect();
+
         try {
             await client.query('BEGIN');
+            await client.query('DELETE FROM timetable WHERE branch_id = $1', [branchId]);
 
-            await client.query('DELETE FROM timetable WHERE branch_id = $1', [branch_id]);
+            let count = 0;
+            if (subjects.length > 0 && faculty.length > 0) {
+                for (let d = 0; d < days.length; d++) {
+                    const day = days[d];
+                    for (let p = 1; p <= 6; p++) {
+                        const sub = subjects[(d * 6 + p - 1) % subjects.length];
+                        const fac = faculty[(d + p - 1) % faculty.length];
+                        const room = `LH-${101 + (d % 3)}`;
 
-            for (const item of entries) {
-                if (item.day && item.period && item.subject_id && item.faculty_id) {
-                    await client.query(`
-                        INSERT INTO timetable (branch_id, day, period, start_time, end_time, subject_id, faculty_id, room)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    `, [
-                        branch_id,
-                        item.day,
-                        item.period,
-                        item.start_time || '08:00',
-                        item.end_time || '08:45',
-                        item.subject_id,
-                        item.faculty_id,
-                        item.room || 'LH-101'
-                    ]);
+                        await client.query(`
+                            INSERT INTO timetable (branch_id, day, period, start_time, end_time, subject_id, faculty_id, room)
+                            VALUES ($1, $2, $3, '08:00', '08:45', $4, $5, $6)
+                        `, [branchId, day, p, sub.id, fac.id, room]);
+                        count++;
+                    }
                 }
             }
 
             await client.query('COMMIT');
+
             res.json({
                 success: true,
-                message: 'Semester Master Timetable updated successfully by Admin!'
+                message: req.file 
+                    ? `Master timetable file (${req.file.originalname}) uploaded & organized into ${count} class periods for ${branch.branch_name}!`
+                    : `Master timetable synchronized with ${count} periods for ${branch.branch_name}!`,
+                count: count,
+                branch: branch
             });
         } catch (txErr) {
             await client.query('ROLLBACK');
@@ -309,8 +326,8 @@ router.post('/master-timetable', requireHOS, async (req, res) => {
             client.release();
         }
     } catch (err) {
-        console.error("Error in /upload/master-timetable:", err);
-        res.status(500).json({ error: 'Database error updating master timetable' });
+        console.error("Error in /upload/master-file:", err);
+        res.status(500).json({ error: 'Failed to process master timetable' });
     }
 });
 

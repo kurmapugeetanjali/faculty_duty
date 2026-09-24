@@ -804,8 +804,26 @@ const dayClassMap = {
 
 function renderMasterTimetable(entries) {
     const tbody = document.getElementById('masterTimetableGridBody');
+    const noticeEl = document.getElementById('timetableNotUploadedNotice');
+    const notUploadedBranch = document.getElementById('notUploadedBranchName');
+    
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    const activeBranch = allBranches.find(b => b.id === currentBranchId);
+    const branchName = activeBranch ? `${activeBranch.department} - ${activeBranch.branch_name}` : `${currentDepartment} Timetable`;
+
+    // Check if timetable has uploaded classes
+    const hasUploadedClasses = entries && Array.isArray(entries) && entries.length > 0;
+
+    if (noticeEl) {
+        if (!hasUploadedClasses) {
+            noticeEl.classList.remove('hidden');
+            if (notUploadedBranch) notUploadedBranch.innerText = branchName;
+        } else {
+            noticeEl.classList.add('hidden');
+        }
+    }
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -814,11 +832,13 @@ function renderMasterTimetable(entries) {
         schedule[d] = { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null };
     });
 
-    entries.forEach(entry => {
-        if (schedule[entry.day]) {
-            schedule[entry.day][entry.period] = entry;
-        }
-    });
+    if (hasUploadedClasses) {
+        entries.forEach(entry => {
+            if (schedule[entry.day]) {
+                schedule[entry.day][entry.period] = entry;
+            }
+        });
+    }
 
     days.forEach(day => {
         const tr = document.createElement('tr');
@@ -835,7 +855,7 @@ function renderMasterTimetable(entries) {
         `;
 
         for (let p = 1; p <= 7; p++) {
-            html += generatePeriodCellHTML(day, p, schedule[day][p]);
+            html += generatePeriodCellHTML(day, p, schedule[day][p], hasUploadedClasses);
         }
 
         tr.innerHTML = html;
@@ -845,7 +865,7 @@ function renderMasterTimetable(entries) {
     if (window.lucide) lucide.createIcons();
 }
 
-function generatePeriodCellHTML(day, period, entry) {
+function generatePeriodCellHTML(day, period, entry, hasUploadedClasses = true) {
     const isSelected = selectedSlot && selectedSlot.day === day && selectedSlot.period === period;
 
     if (entry) {
@@ -887,14 +907,18 @@ function generatePeriodCellHTML(day, period, entry) {
             <td class="timetable-cell">
                 <div onclick="selectPeriodSlot('${day}', ${period}, null)" 
                      class="period-slot subject-theme-free p-2.5 sm:p-3 rounded-xl text-center flex flex-col justify-center min-h-[76px] ${isSelected ? 'selected' : ''}">
-                    <span class="text-[11px] font-extrabold text-slate-600">Free Period</span>
-                    <span class="text-[9px] text-slate-400 mt-0.5">No Class Scheduled</span>
+                    <span class="text-[11px] font-extrabold ${hasUploadedClasses ? 'text-slate-600' : 'text-amber-800'}">
+                        ${hasUploadedClasses ? 'Free Period' : 'Not Uploaded'}
+                    </span>
+                    <span class="text-[9px] text-slate-400 mt-0.5">
+                        ${hasUploadedClasses ? 'No Class Scheduled' : 'Upload in Update & Edit'}
+                    </span>
                     ${(isAdminMode && hodEditMode) ? `
                         <button onclick="event.stopPropagation(); quickAddPeriodForSlot('${day}', ${period})" class="text-[10px] text-indigo-600 font-black hover:underline mt-1">
                             + Add Class
                         </button>
                     ` : `
-                        <span class="text-[9px] font-medium text-slate-400 mt-1">Tap to find faculty</span>
+                        <span class="text-[9px] font-bold text-indigo-600 mt-1">Tap for faculty</span>
                     `}
                 </div>
             </td>
@@ -1580,14 +1604,43 @@ async function savePersonalSchedule() {
     }
 }
 
-async function submitAdminMasterUpload() {
+async function submitAdminMasterUpload(autoPopulate = false) {
     if (!isAdminMode) {
-        showToast('Only Admin can upload master timetables.', 'error');
+        showToast('Only HOD / Admin can upload or edit master timetables.', 'error');
         return;
     }
-    const branchId = document.getElementById('adminUploadTargetSemester').value;
-    showToast(`Master Timetable uploaded & updated for CSE Semester ${branchId}!`);
-    await loadTimetable(branchId);
+    const branchSelect = document.getElementById('adminUploadTargetSemester');
+    const branchId = branchSelect ? branchSelect.value : currentBranchId;
+    const fileInput = document.getElementById('masterTimetableFileInput');
+    const file = fileInput && fileInput.files && fileInput.files[0];
+
+    const formData = new FormData();
+    formData.append('branch_id', branchId);
+    if (file) {
+        formData.append('masterFile', file);
+    }
+
+    try {
+        showToast('Uploading & structuring master timetable...', 'info');
+        const res = await fetch('/api/upload/master-file', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message || 'Master timetable uploaded & active!');
+            currentBranchId = parseInt(branchId, 10);
+            renderBranchUI();
+            await loadTimetable(currentBranchId);
+            if (fileInput) fileInput.value = '';
+        } else {
+            showToast(data.error || 'Failed to update master timetable', 'error');
+        }
+    } catch (e) {
+        console.error("Master upload error:", e);
+        showToast('Server error uploading master timetable', 'error');
+    }
 }
 
 // ================= HOD TIMETABLE EDIT MODE =================
