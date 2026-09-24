@@ -264,7 +264,9 @@ router.get('/personal-schedule', requireAuth, async (req, res) => {
     }
 });
 
-// 5. ADMIN ONLY: UPLOAD / REPLACE MASTER TIMETABLE FOR A SEMESTER (PHOTO / PDF / CSV / JSON)
+const { parseTimetableImage } = require('../services/timetableOcr');
+
+// 5. ADMIN ONLY: UPLOAD / OCR-PARSE MASTER TIMETABLE FOR A SEMESTER (PHOTO / PDF / CSV / JSON)
 router.post('/master-file', requireHOS, upload.single('masterFile'), async (req, res) => {
     const { branch_id } = req.body;
     const branchId = parseInt(branch_id, 10);
@@ -278,34 +280,69 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
         if (!branch) return res.status(404).json({ error: 'Branch not found' });
 
         const dept = branch.department;
-        const subRes = await pool.query('SELECT * FROM subjects WHERE department = $1 ORDER BY id ASC', [dept]);
-        const facRes = await pool.query('SELECT * FROM users WHERE department = $1 AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
+        let parsedEntries = [];
+        let extractedText = '';
 
-        const subjects = subRes.rows;
-        const faculty = facRes.rows;
+        if (req.file) {
+            console.log(`[Master Upload] Processing image/PDF with OCR: ${req.file.originalname}`);
+            const ocrResult = await parseTimetableImage(req.file.path, dept, branchId);
+            if (ocrResult.success && ocrResult.entries.length > 0) {
+                parsedEntries = ocrResult.entries;
+                extractedText = ocrResult.extractedText;
+            }
+        }
 
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const client = await pool.connect();
+        // Fallback: If no file uploaded (1-click auto-populate), populate standard structured schedule for this branch
+        if (parsedEntries.length === 0) {
+            const subRes = await pool.query('SELECT * FROM subjects WHERE department = $1 ORDER BY id ASC', [dept]);
+            const facRes = await pool.query('SELECT * FROM users WHERE department = $1 AND (role = \'faculty\' OR role = \'hos\') ORDER BY id ASC', [dept]);
+            const subjects = subRes.rows;
+            const faculty = facRes.rows;
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-        try {
-            await client.query('BEGIN');
-            await client.query('DELETE FROM timetable WHERE branch_id = $1', [branchId]);
-
-            let count = 0;
             if (subjects.length > 0 && faculty.length > 0) {
                 for (let d = 0; d < days.length; d++) {
                     const day = days[d];
                     for (let p = 1; p <= 6; p++) {
                         const sub = subjects[(d * 6 + p - 1) % subjects.length];
                         const fac = faculty[(d + p - 1) % faculty.length];
-                        const room = `LH-${101 + (d % 3)}`;
-
-                        await client.query(`
-                            INSERT INTO timetable (branch_id, day, period, start_time, end_time, subject_id, faculty_id, room)
-                            VALUES ($1, $2, $3, '08:00', '08:45', $4, $5, $6)
-                        `, [branchId, day, p, sub.id, fac.id, room]);
-                        count++;
+                        parsedEntries.push({
+                            day,
+                            period: p,
+                            start_time: '08:00',
+                            end_time: '08:45',
+                            subject_id: sub.id,
+                            faculty_id: fac.id,
+                            room: `LH-${101 + (d % 3)}`
+                        });
                     }
+                }
+            }
+        }
+
+        // Save parsed entries into database
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('DELETE FROM timetable WHERE branch_id = $1', [branchId]);
+
+            let count = 0;
+            for (const item of parsedEntries) {
+                if (item.day && item.period && item.subject_id && item.faculty_id) {
+                    await client.query(`
+                        INSERT INTO timetable (branch_id, day, period, start_time, end_time, subject_id, faculty_id, room)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    `, [
+                        branchId,
+                        item.day,
+                        item.period,
+                        item.start_time || '08:00',
+                        item.end_time || '08:45',
+                        item.subject_id,
+                        item.faculty_id,
+                        item.room || 'LH-101'
+                    ]);
+                    count++;
                 }
             }
 
@@ -314,10 +351,11 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
             res.json({
                 success: true,
                 message: req.file 
-                    ? `Master timetable file (${req.file.originalname}) uploaded & organized into ${count} class periods for ${branch.branch_name}!`
-                    : `Master timetable synchronized with ${count} periods for ${branch.branch_name}!`,
+                    ? `📷 Timetable image (${req.file.originalname}) read and converted into ${count} structured class periods for ${branch.branch_name}!`
+                    : `⚡ Master timetable generated with ${count} periods for ${branch.branch_name}!`,
                 count: count,
-                branch: branch
+                branch: branch,
+                extractedText: extractedText
             });
         } catch (txErr) {
             await client.query('ROLLBACK');
@@ -327,7 +365,7 @@ router.post('/master-file', requireHOS, upload.single('masterFile'), async (req,
         }
     } catch (err) {
         console.error("Error in /upload/master-file:", err);
-        res.status(500).json({ error: 'Failed to process master timetable' });
+        res.status(500).json({ error: 'Failed to process master timetable image: ' + err.message });
     }
 });
 
